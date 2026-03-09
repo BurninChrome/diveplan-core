@@ -16,7 +16,7 @@ double getCeiling(const struct compartment_constants *constants,
 	//N2
 	PStopN2 = (compt->n2_p - constants->n2_a) * constants->n2_b;
 
-	//H2
+	//He
 	PStopHe = (compt->he_p - constants->he_a) * constants->he_b;
 
 	if (PStopN2 > PStopHe)

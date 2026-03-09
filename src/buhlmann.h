@@ -36,12 +36,12 @@ extern const struct compartment_constants zh_l16A[];
 extern const struct compartment_constants zh_l16B[];
 extern const struct compartment_constants zh_l16C[];
 
-#define WATER_VAPOR_PRESSURE 0.0627f
-#define CO2_PRESSURE 0.0534f
-#define SCHREINER_RQ 0.8f
-#define USNAVY_RQ 0.9f
-#define BUHLMANN_RQ 1.0f
-#define STOPINC 0.3f // We consider stops at 3m 6m 9m 12m etc 
+#define WATER_VAPOR_PRESSURE 0.0627
+#define CO2_PRESSURE 0.0534
+#define SCHREINER_RQ 0.8
+#define USNAVY_RQ 0.9
+#define BUHLMANN_RQ 1.0
+#define STOPINC 0.3 /* We consider stops at 3m 6m 9m 12m etc */
 
 double ventilation(double pamb,
                    double rq,

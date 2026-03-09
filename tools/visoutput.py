@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#!/usr/bin/env python3
 """
 
 """
@@ -83,7 +83,7 @@ plt.xlabel('Compartment')
 plt.ylabel('Pressure (bar)')
 
 axtime = plt.axes([0.2, 0.02, 0.65, 0.03])
-stime= Slider(axtime, 'Time', 0, len(compN2)-1, valinit=0,valfmt='%d')
+stime = Slider(axtime, 'Time', 0, len(compN2)-1, valinit=0)
 
 def update(val):
 	time = int(stime.val)

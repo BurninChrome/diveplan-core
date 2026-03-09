@@ -51,9 +51,6 @@ double nodecotime(const struct compartment_constants *constants,
                         he_ratio);
 		ceiling = getCeiling(constants,&end);
 
-		if (ceiling )
-
-
 		if (ceiling > 1.1) // on a un ceilling trop gros
 			Addtime = Addtime*.5;
 		else

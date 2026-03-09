@@ -10,7 +10,7 @@ libbuhlmann_la_SOURCES = buhlmann.c \
 						 stop.c \
 						 otu.c \
 						 gradientfactor.c
-libbuhlmann_la_CFLAGS = -W -Wall -O2
+libbuhlmann_la_CFLAGS = -W -Wall -Wextra -O2 -std=c99 -D_GNU_SOURCE
 include_HEADERS = buhlmann.h
 noinst_PROGRAMS = dive
 dive_LDFLAGS = -static
