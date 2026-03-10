@@ -90,6 +90,17 @@ What changes as a result.
 
 Before making changes, read existing ADRs in `doc/adr/` to understand prior decisions and constraints.
 
+## License and Attribution Policy
+
+This project is derived from **libbuhlmann** by **AquaBSD** — https://github.com/AquaBSD/libbuhlmann — copyright © 2015–2016 AquaBSD (<contact@aquabsd.org>), released under the **ISC License** (see `LICENSE`).
+
+The ISC License requires the copyright notice and permission notice appear in all copies. When working in this codebase:
+
+- **Never remove or modify** the copyright notice in `LICENSE` or any source file that carries one.
+- **New source files must include** the ISC copyright header.
+- When redistributing or packaging (tarballs, images, forks), always include `LICENSE` and `AUTHORS`.
+- Do not relicense any part of the codebase without explicit user approval.
+
 ## Algorithm Integrity Policy
 
 **The decompression algorithms must never be modified without explicit user approval.**

@@ -1,0 +1,28 @@
+=== Bühlmann library unit tests ===
+
+test_ventilation
+test_haldane
+test_schreiner
+test_getCeiling
+test_compartment_stagnate
+test_compartment_descend
+test_nodecotime
+test_otu_const
+test_gradient_factor
+test_integration_surface_equilibrium
+test_integration_dive_loading
+
+--- ZH-L16C (dive computer algorithm) ---
+
+test_zh_l16c_constants (ZH-L16C — dive computer algorithm)
+test_zh_l16c_surface_equilibrium
+test_zh_l16c_dive_loading
+test_zh_l16c_trimix (He loading)
+
+--- Additional function coverage ---
+
+test_compartment_mvalue
+test_otu_descend
+
+=== Results: 202/202 passed ===
+PASS test_buhlmann (exit status: 0)
