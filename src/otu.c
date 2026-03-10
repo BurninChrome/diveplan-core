@@ -13,7 +13,7 @@ double otu_const(double time,
 	double otu = 0.0;
 
 	if (o2_ratio > 0.5)
-		otu = time * pow(( 0.5 / (o2_ratio - 0.5)), (-5/6));
+		otu = time * pow(( 0.5 / (o2_ratio - 0.5)), (-5.0/6.0));
 
 	return (otu);
 }
@@ -24,8 +24,12 @@ double otu_descend(double time,
 {
 	double otu = 0.0;
 
-	if (o2_ratio_i > 0.5 || o2_ratio_f > 0.5 )
-		otu = ((3/11)*time)/(o2_ratio_f-o2_ratio_i)*(pow((o2_ratio_f - 0.5)/0.5,11/6) - pow((o2_ratio_i - 0.5)/0.5, 11/6));
+	if (o2_ratio_i > 0.5 || o2_ratio_f > 0.5) {
+		double o2_i = fmax(o2_ratio_i, 0.5);
+		double o2_f = fmax(o2_ratio_f, 0.5);
+		if (o2_f != o2_i)
+			otu = ((3.0/11.0)*time)/(o2_ratio_f-o2_ratio_i)*(pow((o2_f - 0.5)/0.5,11.0/6.0) - pow((o2_i - 0.5)/0.5, 11.0/6.0));
+	}
 
 	return otu;
 }

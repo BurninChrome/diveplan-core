@@ -15,12 +15,12 @@ int main(void)
     ssize_t l; int n;
     double lastt, lastp;
 
-    lastt = 0.0f;
-    lastp = 1.0f;
+    lastt = 0.0;
+    lastp = 1.0;
 
     for (i = 0; i < ZH_L12_NR_COMPARTMENTS; i++) {
-        s[i].he_p = ventilation(lastp, BUHLMANN_RQ, 0.0f);
-        s[i].n2_p = ventilation(lastp, BUHLMANN_RQ, 0.78084f);
+        s[i].he_p = ventilation(lastp, BUHLMANN_RQ, 0.0);
+        s[i].n2_p = ventilation(lastp, BUHLMANN_RQ, 0.78084);
     }
 
     line = NULL;
@@ -60,13 +60,13 @@ int main(void)
                 compartment_descend(&zh_l12[i],
                                     &s[i], &s[i],
                                     lastp, dp / dt,
-                                    dt, BUHLMANN_RQ, 1.0f-o2-he, he);
+                                    dt, BUHLMANN_RQ, 1.0-o2-he, he);
             }
 
             fprintf(stdout, " %lf %lf", s[i].n2_p, s[i].he_p);
 
             ceiling = fmax(getCeiling(&zh_l12[i],&s[i]),ceiling);
-            nodectime = fmin(nodecotime(&zh_l12[i],&s[i],lastp,1.0f-o2-he,he),nodectime);
+            nodectime = fmin(nodecotime(&zh_l12[i],&s[i],lastp,1.0-o2-he,he),nodectime);
 
             //if (nostoptime(&zh_l12[i],&s[i],lastp) > 0)
             //    nodectime = fmin(nostoptime(&zh_l12[i],&s[i],lastp),nodectime);
