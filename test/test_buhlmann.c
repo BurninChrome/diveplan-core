@@ -512,13 +512,20 @@ static void test_otu_descend(void)
     ASSERT_NEAR(0.0, result, EPSILON,
                 "both ppO2 <= 0.5 → no OTU");
 
-    /* Both sides > 0.5: toxicity calculated.
-     * NOTE: when o2_i < 0.5 and o2_f > 0.5, the formula computes
-     * pow((o2_i - 0.5)/0.5, 11/6) = pow(negative, 1.833) → NaN.
-     * This is a known limitation of otu_descend(); see bug report. */
+    /* Both sides > 0.5: toxicity calculated */
     result = otu_descend(10.0, 0.6, 1.0);
     ASSERT_TRUE(result > 0.0,
                 "descent within hyperoxia → positive OTU");
+
+    /* o2_i < 0.5, o2_f > 0.5: ascent into hyperoxia — OTU from threshold */
+    result = otu_descend(10.0, 0.4, 1.0);
+    ASSERT_TRUE(result > 0.0,
+                "descent into hyperoxia → positive OTU");
+
+    /* o2_i > 0.5, o2_f < 0.5: descent out of hyperoxia — clamp o2_f */
+    result = otu_descend(10.0, 0.8, 0.4);
+    ASSERT_TRUE(result > 0.0,
+                "ascent out of hyperoxia → positive OTU");
 
     /* Both sides > 0.5: toxicity calculated */
     result = otu_descend(60.0, 0.6, 1.0);
