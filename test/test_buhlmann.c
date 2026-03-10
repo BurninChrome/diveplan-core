@@ -452,6 +452,259 @@ static void test_integration_dive_loading(void)
                 "30 min at 40m → deco obligation (ceiling > surface)");
 }
 
+/* ========================================================================
+ * compartment_mvalue() — weighted M-value across N2 and He
+ * a = (n2_p*n2_a + he_p*he_a) / (n2_p + he_p)
+ * b = (n2_p*n2_b + he_p*he_b) / (n2_p + he_p)
+ * mvalue = ((n2_p + he_p) - a) * b
+ * ====================================================================== */
+static void test_compartment_mvalue(void)
+{
+    printf("test_compartment_mvalue\n");
+
+    struct compartment_state s;
+
+    /* Pure N2 loading, ZH-L16C compartment 1 (idx 0):
+     * a = n2_a = 1.2599, b = n2_b = 0.5240
+     * mvalue = (2.0 - 1.2599) * 0.5240 = 0.7401 * 0.5240 */
+    s.n2_p = 2.0;
+    s.he_p = 0.0;
+    double expected = (2.0 - zh_l16C[0].n2_a) * zh_l16C[0].n2_b;
+    ASSERT_NEAR(expected, compartment_mvalue(&zh_l16C[0], &s), EPSILON,
+                "ZH-L16C cpt1, pure N2: mvalue matches ceiling formula");
+
+    /* Pure He loading, ZH-L16C compartment 1:
+     * a = he_a = 1.7424, b = he_b = 0.4245 */
+    s.n2_p = 0.0;
+    s.he_p = 2.0;
+    expected = (2.0 - zh_l16C[0].he_a) * zh_l16C[0].he_b;
+    ASSERT_NEAR(expected, compartment_mvalue(&zh_l16C[0], &s), EPSILON,
+                "ZH-L16C cpt1, pure He: mvalue matches ceiling formula");
+
+    /* Mixed N2+He: weighted average of a and b coefficients */
+    s.n2_p = 1.5;
+    s.he_p = 0.5;
+    double total = s.n2_p + s.he_p;
+    double a = (s.n2_p * zh_l16C[0].n2_a + s.he_p * zh_l16C[0].he_a) / total;
+    double b = (s.n2_p * zh_l16C[0].n2_b + s.he_p * zh_l16C[0].he_b) / total;
+    expected = (total - a) * b;
+    ASSERT_NEAR(expected, compartment_mvalue(&zh_l16C[0], &s), EPSILON,
+                "ZH-L16C cpt1, mixed N2+He: weighted mvalue");
+
+    /* Higher total inert gas pressure → higher mvalue */
+    struct compartment_state s_low = { .n2_p = 1.0, .he_p = 0.0 };
+    struct compartment_state s_high = { .n2_p = 3.0, .he_p = 0.0 };
+    ASSERT_TRUE(compartment_mvalue(&zh_l16C[0], &s_high) >
+                compartment_mvalue(&zh_l16C[0], &s_low),
+                "higher loading → higher mvalue");
+}
+
+/* ========================================================================
+ * otu_descend() — OTU during descent (changing O2 partial pressure)
+ * otu = (3/11 * time) / (o2_f - o2_i) * (pow(...f) - pow(...i))
+ * ====================================================================== */
+static void test_otu_descend(void)
+{
+    printf("test_otu_descend\n");
+
+    /* Both ppO2 <= 0.5: no toxicity */
+    double result = otu_descend(10.0, 0.21, 0.40);
+    ASSERT_NEAR(0.0, result, EPSILON,
+                "both ppO2 <= 0.5 → no OTU");
+
+    /* Both sides > 0.5: toxicity calculated.
+     * NOTE: when o2_i < 0.5 and o2_f > 0.5, the formula computes
+     * pow((o2_i - 0.5)/0.5, 11/6) = pow(negative, 1.833) → NaN.
+     * This is a known limitation of otu_descend(); see bug report. */
+    result = otu_descend(10.0, 0.6, 1.0);
+    ASSERT_TRUE(result > 0.0,
+                "descent within hyperoxia → positive OTU");
+
+    /* Both sides > 0.5: toxicity calculated */
+    result = otu_descend(60.0, 0.6, 1.0);
+    ASSERT_TRUE(result > 0.0,
+                "descent within hyperoxia → positive OTU");
+
+    /* Linearity in time */
+    double otu_30 = otu_descend(30.0, 0.6, 1.0);
+    double otu_60 = otu_descend(60.0, 0.6, 1.0);
+    ASSERT_NEAR(2.0, otu_60 / otu_30, EPSILON,
+                "OTU_descend linear in time");
+
+    /* Known calculation: o2_i=0.6, o2_f=1.0, t=60 */
+    double expected = ((3.0/11.0) * 60.0) / (1.0 - 0.6) *
+                      (pow((1.0 - 0.5)/0.5, 11.0/6.0) -
+                       pow((0.6 - 0.5)/0.5, 11.0/6.0));
+    result = otu_descend(60.0, 0.6, 1.0);
+    ASSERT_NEAR(expected, result, EPSILON,
+                "otu_descend known calculation");
+}
+
+/* ========================================================================
+ * ZH-L16C specific tests — the algorithm used in dive computers
+ * This is the most safety-critical constant table in the library.
+ * ====================================================================== */
+static void test_zh_l16c_constants(void)
+{
+    printf("test_zh_l16c_constants (ZH-L16C — dive computer algorithm)\n");
+
+    /* ZH-L16C has exactly 17 compartments (1, 1b, 2..16) */
+    /* Compartment 1 (idx 0): N2 half-time = 4.0 min */
+    ASSERT_NEAR(4.0,    zh_l16C[0].n2_h,  EPSILON, "cpt1  N2 half-time = 4.0");
+    ASSERT_NEAR(1.2599, zh_l16C[0].n2_a,  1e-4,    "cpt1  N2 a = 1.2599");
+    ASSERT_NEAR(0.5240, zh_l16C[0].n2_b,  1e-4,    "cpt1  N2 b = 0.5240");
+    ASSERT_NEAR(1.51,   zh_l16C[0].he_h,  1e-4,    "cpt1  He half-time = 1.51");
+
+    /* Compartment 1b (idx 1) is unique to ZH-L16C vs A/B */
+    ASSERT_NEAR(5.0,    zh_l16C[1].n2_h,  EPSILON, "cpt1b N2 half-time = 5.0");
+    ASSERT_NEAR(1.6189, zh_l16C[1].he_a,  1e-4,    "cpt1b He a = 1.6189");
+
+    /* Last compartment (idx 16): N2 half-time = 635 min */
+    ASSERT_NEAR(635.0,  zh_l16C[16].n2_h, EPSILON, "cpt16 N2 half-time = 635.0");
+    ASSERT_NEAR(0.2327, zh_l16C[16].n2_a, 1e-4,    "cpt16 N2 a = 0.2327");
+    ASSERT_NEAR(0.9653, zh_l16C[16].n2_b, 1e-4,    "cpt16 N2 b = 0.9653");
+
+    /* Half-times must increase monotonically (faster → slower compartments) */
+    int i;
+    for (i = 0; i < ZH_L16_NR_COMPARTMENTS - 1; i++) {
+        ASSERT_TRUE(zh_l16C[i].n2_h < zh_l16C[i+1].n2_h,
+                    "N2 half-times increase monotonically");
+        ASSERT_TRUE(zh_l16C[i].he_h < zh_l16C[i+1].he_h,
+                    "He half-times increase monotonically");
+    }
+
+    /* He half-times must be shorter than N2 (He diffuses faster) */
+    for (i = 0; i < ZH_L16_NR_COMPARTMENTS; i++) {
+        ASSERT_TRUE(zh_l16C[i].he_h < zh_l16C[i].n2_h,
+                    "He half-time < N2 half-time in every compartment");
+    }
+
+    /* All b coefficients must be in (0, 1) — physical constraint */
+    for (i = 0; i < ZH_L16_NR_COMPARTMENTS; i++) {
+        ASSERT_TRUE(zh_l16C[i].n2_b > 0.0 && zh_l16C[i].n2_b < 1.0,
+                    "N2 b in (0,1)");
+        ASSERT_TRUE(zh_l16C[i].he_b > 0.0 && zh_l16C[i].he_b < 1.0,
+                    "He b in (0,1)");
+    }
+
+    /* N2 a coefficients decrease with compartment number */
+    for (i = 0; i < ZH_L16_NR_COMPARTMENTS - 1; i++) {
+        ASSERT_TRUE(zh_l16C[i].n2_a > zh_l16C[i+1].n2_a,
+                    "N2 a decreases with compartment index");
+    }
+
+    /* N2 b coefficients increase with compartment number */
+    for (i = 0; i < ZH_L16_NR_COMPARTMENTS - 1; i++) {
+        ASSERT_TRUE(zh_l16C[i].n2_b < zh_l16C[i+1].n2_b,
+                    "N2 b increases with compartment index");
+    }
+}
+
+static void test_zh_l16c_surface_equilibrium(void)
+{
+    printf("test_zh_l16c_surface_equilibrium\n");
+
+    struct compartment_state s[ZH_L16_NR_COMPARTMENTS];
+    int i;
+
+    /* All 17 ZH-L16C compartments at surface saturation → no deco obligation */
+    for (i = 0; i < ZH_L16_NR_COMPARTMENTS; i++) {
+        s[i].n2_p = ventilation(1.0, BUHLMANN_RQ, 0.78084);
+        s[i].he_p = 0.0;
+    }
+
+    double max_ceiling = 0.0;
+    for (i = 0; i < ZH_L16_NR_COMPARTMENTS; i++) {
+        double c = getCeiling(&zh_l16C[i], &s[i]);
+        if (c > max_ceiling) max_ceiling = c;
+    }
+    ASSERT_TRUE(max_ceiling < 1.0,
+                "ZH-L16C: surface equilibrium → all ceilings below surface");
+}
+
+static void test_zh_l16c_dive_loading(void)
+{
+    printf("test_zh_l16c_dive_loading\n");
+
+    struct compartment_state s[ZH_L16_NR_COMPARTMENTS];
+    int i;
+
+    /* Initialize to surface saturation */
+    for (i = 0; i < ZH_L16_NR_COMPARTMENTS; i++) {
+        s[i].n2_p = ventilation(1.0, BUHLMANN_RQ, 0.78084);
+        s[i].he_p = 0.0;
+    }
+
+    /* Simulate 30 min at 40m (5 bar) with air */
+    for (i = 0; i < ZH_L16_NR_COMPARTMENTS; i++) {
+        compartment_stagnate(&zh_l16C[i], &s[i], &s[i], 5.0, 30.0,
+                             BUHLMANN_RQ, 0.78084, 0.0);
+    }
+
+    /* Fast compartment loads more than slow */
+    ASSERT_TRUE(s[0].n2_p > s[16].n2_p,
+                "ZH-L16C: fast cpt loads more than slow after 30min@40m");
+
+    /* After 30 min at 40m, there should be a deco obligation */
+    double max_ceiling = 0.0;
+    for (i = 0; i < ZH_L16_NR_COMPARTMENTS; i++) {
+        double c = getCeiling(&zh_l16C[i], &s[i]);
+        if (c > max_ceiling) max_ceiling = c;
+    }
+    ASSERT_TRUE(max_ceiling > 1.0,
+                "ZH-L16C: 30min@40m → deco obligation");
+
+    /* NDL at surface after this dive: should be 0 (we're in deco) */
+    double min_ndl = 100.0;
+    for (i = 0; i < ZH_L16_NR_COMPARTMENTS; i++) {
+        double ndl = nodecotime(&zh_l16C[i], &s[i], 5.0, 0.78084, 0.0);
+        if (ndl < min_ndl) min_ndl = ndl;
+    }
+    ASSERT_TRUE(min_ndl < 5.0,
+                "ZH-L16C: NDL near zero after 30min@40m");
+}
+
+static void test_zh_l16c_trimix(void)
+{
+    printf("test_zh_l16c_trimix (He loading)\n");
+
+    struct compartment_state s[ZH_L16_NR_COMPARTMENTS];
+    int i;
+
+    /* Initialize to surface saturation (no He) */
+    for (i = 0; i < ZH_L16_NR_COMPARTMENTS; i++) {
+        s[i].n2_p = ventilation(1.0, BUHLMANN_RQ, 0.78084);
+        s[i].he_p = 0.0;
+    }
+
+    /* 20 min at 60m (7 bar) on trimix 21/35 (21% O2, 35% He, 44% N2) */
+    double n2_ratio = 0.44;
+    double he_ratio = 0.35;
+    for (i = 0; i < ZH_L16_NR_COMPARTMENTS; i++) {
+        compartment_stagnate(&zh_l16C[i], &s[i], &s[i], 7.0, 20.0,
+                             BUHLMANN_RQ, n2_ratio, he_ratio);
+    }
+
+    /* He should now be loaded in all compartments */
+    for (i = 0; i < ZH_L16_NR_COMPARTMENTS; i++) {
+        ASSERT_TRUE(s[i].he_p > 0.0,
+                    "ZH-L16C trimix: He loaded in all compartments");
+    }
+
+    /* Fast He compartment loads more He than slow */
+    ASSERT_TRUE(s[0].he_p > s[16].he_p,
+                "ZH-L16C trimix: fast cpt has more He than slow");
+
+    /* Ceiling should exist — trimix at 60m generates deco */
+    double max_ceiling = 0.0;
+    for (i = 0; i < ZH_L16_NR_COMPARTMENTS; i++) {
+        double c = getCeiling(&zh_l16C[i], &s[i]);
+        if (c > max_ceiling) max_ceiling = c;
+    }
+    ASSERT_TRUE(max_ceiling > 1.0,
+                "ZH-L16C trimix 20min@60m → deco obligation");
+}
+
 /* ======================================================================== */
 
 int main(void)
@@ -469,6 +722,16 @@ int main(void)
     test_gradient_factor();
     test_integration_surface_equilibrium();
     test_integration_dive_loading();
+
+    printf("\n--- ZH-L16C (dive computer algorithm) ---\n\n");
+    test_zh_l16c_constants();
+    test_zh_l16c_surface_equilibrium();
+    test_zh_l16c_dive_loading();
+    test_zh_l16c_trimix();
+
+    printf("\n--- Additional function coverage ---\n\n");
+    test_compartment_mvalue();
+    test_otu_descend();
 
     printf("\n=== Results: %d/%d passed ===\n", tests_passed, tests_run);
 

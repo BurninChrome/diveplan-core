@@ -44,7 +44,7 @@ The pipeline is: `gen_dive.py` → `dive` (C binary) → `visoutput.py`
 - **`compartment.c`** — Dispatches to Haldane or Schreiner equation per compartment per step
 - **`haldane.c`** — Constant-pressure gas loading (stays at depth)
 - **`schreiner.c`** — Variable-pressure gas loading (ascent/descent)
-- **`zh-l16.c`** / **`zh-l12.c`** — Bühlmann tissue constants (half-times, a/b M-value coefficients) for N2 and He
+- **`zh-l16.c`** / **`zh-l12.c`** — Bühlmann tissue constants (half-times, a/b M-value coefficients) for N2 and He. The file contains three ZH-L16 variants: A, B, and **C**. **ZH-L16C is the most important** — it is the variant validated for use in dive computers and is the standard used in commercial dive planning software. Tests must cover ZH-L16C first and foremost.
 - **`ceiling.c`** — M-value ceiling: minimum safe ascent depth across all compartments
 - **`stop.c`** — Decompression stop depth and duration
 - **`gradientfactor.c`** — Gradient factor (GF) conservatism adjustments
@@ -89,3 +89,21 @@ What changes as a result.
 ```
 
 Before making changes, read existing ADRs in `doc/adr/` to understand prior decisions and constraints.
+
+## Algorithm Integrity Policy
+
+**The decompression algorithms must never be modified without explicit user approval.**
+
+The Bühlmann equations (Haldane, Schreiner, M-value ceiling, alveolar pressure) and the tissue constant tables (ZH-L12, ZH-L16A/B/C) implement safety-critical decompression mathematics. Incorrect changes can produce dive plans that cause decompression sickness.
+
+If a potential bug is found in the algorithm:
+1. **Do not change the code.**
+2. Write a full bug report containing:
+   - Which function and file is affected
+   - The exact erroneous behavior (with input/output examples)
+   - The root cause
+   - The proposed fix and its scope
+   - Any impact on other functions or outputs
+3. Present the report to the user and **wait for explicit confirmation** before making any changes.
+
+This policy applies to: `haldane.c`, `schreiner.c`, `compartment.c`, `ceiling.c`, `stop.c`, `alveolar.c`, `gradientfactor.c`, `otu.c`, `zh-l12.c`, `zh-l16.c`, and all tissue constant tables.
