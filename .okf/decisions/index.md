@@ -20,7 +20,7 @@ standing policy and this bundle's own methodological record.
 
 # This bundle
 
-* [2026-07-25 — How this bundle's numeric claims were verified](2026-07-25-bundle-verification-method.md) - no C toolchain was available; the method used instead, and its limits.
+* [2026-07-25 — How this bundle's numeric claims were verified](2026-07-25-bundle-verification-method.md) - derived without a C toolchain, then confirmed against the compiled library; the method, its limits, and the confirmation table.
 
 # Convention
 

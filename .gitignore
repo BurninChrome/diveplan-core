@@ -89,10 +89,13 @@ Makefile
 .deps/
 .libs/
 
-# Built binaries and test artefacts
+# Built binaries and test artefacts.
+# Note: *.log is deliberately NOT used here — this project's subject matter is
+# dive logs, and its fixture corpus lives in test/xml/. Keep these anchored.
 /src/dive
 /test/test_buhlmann
-*.log
+/test/test-suite.log
+/test/test_buhlmann.log
 *.trs
 
 # Python

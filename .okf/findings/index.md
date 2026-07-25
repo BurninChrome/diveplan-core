@@ -29,7 +29,7 @@ Every numeric claim is reproducible. Methods:
 
 # Low severity
 
-* [Compartments are initialised at a different air composition than the simulation uses](nitrogen-fraction-inconsistency.md) - 0.78084 vs 0.79052, so a diver at the surface slowly on-gasses.
+* [Compartments are initialised at a different air composition than the simulation uses](nitrogen-fraction-inconsistency.md) - 0.78084 vs 0.79, so a diver at the surface slowly on-gasses.
 * [compartment_mvalue() returns NaN for an unloaded compartment](mvalue-division-by-zero.md) - no production caller today, but it blocks the ceiling fix.
 * [visoutput.py drops the last helium column and mis-renders the NDL](visoutput-he-column.md) - display-only; four lines to fix.
 * [The dive binary compiles with no warning flags](dive-built-without-warnings.md) - `-Wall -Wextra` never sees the driver, hiding at least one diagnostic.

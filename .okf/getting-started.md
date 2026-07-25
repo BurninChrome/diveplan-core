@@ -87,7 +87,10 @@ was then independently reviewed against the source, validated against the
 decompression literature, and finally **re-checked against the compiled
 library** once a toolchain was installed.
 
-The build is clean and `make check` passes **202/202**. Every numeric claim was
-reproduced against the real binary, digit for digit, with no retractions. See
+The build is clean and `make check` passes **202/202**. Every claim about the C
+library was reproduced against the real binary, digit for digit. A fourth pass —
+an independent merge review — then caught one genuine error the first three
+missed: the nitrogen-fraction magnitudes, which had been derived from
+`gen_dive.py`'s internal constant rather than from what it actually prints. See
 [verification method](/decisions/2026-07-25-bundle-verification-method.md) for
-the confirmation table and the one immaterial discrepancy.
+the confirmation table and the corrections.

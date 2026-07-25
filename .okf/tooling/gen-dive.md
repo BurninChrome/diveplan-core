@@ -81,7 +81,8 @@ hides it. Harmless.
 
 # The N₂ inconsistency
 
-`O2 = 0.20948` implies `fN₂ = 0.79052`, but
+The generator's internal `O2 = .20948` is printed with `"%.2f"`, so what `dive`
+actually reads is `0.21`, implying `fN₂ = 0.79`. Meanwhile
 [`dive.c`](/components/dive-cli.md) initialises its compartments at the
 0.78084 equilibrium. A profile from this generator therefore starts the
 simulation slightly out of equilibrium and every compartment drifts upward even

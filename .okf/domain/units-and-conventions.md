@@ -62,14 +62,20 @@ Two values appear, and they disagree by 1.2%:
 
 - **0.78084** — dry atmospheric N₂. Hard-coded in `dive.c`'s surface
   initialisation and throughout the test suite.
-- **0.79052** — implied by `gen_dive.py` emitting `O2 = 0.20948` and `dive.c`
-  computing `n2_ratio = 1.0 − fO2 − fHe`.
+- **0.79** — implied by `dive.c` computing `n2_ratio = 1.0 − fO2 − fHe` from the
+  `fO2 = 0.21` that arrives on stdin.
+
+Note the second value is **0.79, not 0.79052**. `gen_dive.py` holds
+`O2 = .20948` internally but formats every line with `"%.2f"`, so `0.21` is what
+crosses the process boundary. Reasoning from the generator's source constant
+rather than its output gives the wrong answer here.
 
 So a run initialises compartments at the 0.78084 equilibrium and then
-immediately starts loading them against 0.79052. On a surface-interval-only
-profile this shows as a slow drift upward in every compartment. It is
-long-standing and harmless at dive-planning resolution, but it means
-"equilibrated at the surface" is not a fixed point of the simulation.
+immediately starts loading them against 0.79. On a surface-interval-only profile
+this shows as a slow drift upward in every compartment — 0.008586 bar over six
+hours. It is long-standing and harmless at dive-planning resolution, but it
+means "equilibrated at the surface" is not a fixed point of the simulation.
+See [the finding](/findings/nitrogen-fraction-inconsistency.md).
 
 # Sentinel values
 

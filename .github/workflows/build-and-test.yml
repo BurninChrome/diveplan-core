@@ -2,9 +2,16 @@ name: build-and-test
 
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   c:
@@ -87,40 +94,79 @@ jobs:
       - name: Install PyYAML
         run: pip install --quiet 'pyyaml>=6'
 
-      # Keeps .okf/ structurally valid: every concept needs parseable YAML
-      # frontmatter with a non-empty `type` field (OKF v0.1 §9).
-      - name: Validate frontmatter and structure
+      # Full OKF v0.1 §9 conformance, not just a frontmatter smoke test.
+      # Implemented inline rather than fetched at run time so CI has no network
+      # dependency on third-party tooling.
+      - name: Validate the bundle against OKF v0.1
         run: |
           python3 - <<'PY'
-          import pathlib, sys, yaml
+          import pathlib, re, sys, yaml
+
           root = pathlib.Path('.okf')
-          if not root.is_dir():
-              print('no .okf/ bundle, skipping'); sys.exit(0)
-          errors = []
+          errors, concepts, indexes, logs = [], 0, 0, 0
+
           for f in sorted(root.rglob('*.md')):
-              if f.name in ('index.md', 'log.md'):
-                  continue
+              rel = f.relative_to(root)
               text = f.read_text(encoding='utf-8')
+
+              # §6 — index.md carries no frontmatter, except the bundle-root
+              # index which may declare okf_version and nothing else.
+              if f.name == 'index.md':
+                  indexes += 1
+                  if text.startswith('---'):
+                      if f.parent != root:
+                          errors.append(f'{rel}: §6 non-root index.md must not have frontmatter')
+                      else:
+                          fm = yaml.safe_load(text.split('---')[1]) or {}
+                          extra = set(fm) - {'okf_version'}
+                          if extra:
+                              errors.append(f'{rel}: §11 root index may only carry okf_version, found {sorted(extra)}')
+                  continue
+
+              # §7 — log.md date headings must be ISO YYYY-MM-DD.
+              if f.name == 'log.md':
+                  logs += 1
+                  for h in re.findall(r'^##\s+(.+)$', text, re.M):
+                      if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', h.strip()):
+                          errors.append(f'{rel}: §7 date heading not ISO 8601: {h.strip()!r}')
+                  continue
+
+              # §9.1 / §9.2 — parseable frontmatter with a non-empty `type`.
+              concepts += 1
               if not text.startswith('---'):
-                  errors.append(f'{f}: no frontmatter'); continue
+                  errors.append(f'{rel}: §9.1 missing frontmatter'); continue
               try:
                   fm = yaml.safe_load(text.split('---')[1])
               except Exception as e:
-                  errors.append(f'{f}: unparseable YAML: {e}'); continue
+                  errors.append(f'{rel}: §9.1 unparseable YAML: {e}'); continue
               if not (fm or {}).get('type'):
-                  errors.append(f'{f}: missing or empty `type`')
+                  errors.append(f'{rel}: §9.2 missing or empty `type`')
+
           for e in errors:
               print('ERROR', e)
-          print(f'{len(list(root.rglob("*.md")))} markdown files checked')
+          print(f'concepts: {concepts}   index.md: {indexes}   log.md: {logs}')
+          print('non-conformant' if errors else 'conformant')
           sys.exit(1 if errors else 0)
           PY
 
-      # Documentation is English-only; pre-existing French content in
-      # src/stop.c and doc/*.pdf is out of scope and deliberately untouched.
-      - name: Check the bundle contains no Polish characters
+      # Cross-links are bundle-relative (OKF §5.1), so they resolve against
+      # .okf/ rather than the repo root. Verify they actually point somewhere.
+      - name: Check cross-links resolve
         run: |
-          if grep -rlP '[\x{0105}\x{0107}\x{0119}\x{0142}\x{0144}\x{00F3}\x{015B}\x{017A}\x{017C}\x{0104}\x{0106}\x{0118}\x{0141}\x{0143}\x{015A}\x{0179}\x{017B}]' .okf/ ; then
-            echo "Polish characters found in .okf/ — documentation must be English"
-            exit 1
-          fi
-          echo "ok"
+          python3 - <<'PY'
+          import pathlib, re, sys
+          root = pathlib.Path('.okf')
+          broken = []
+          for f in root.rglob('*.md'):
+              for _, target in re.findall(r'\[([^\]]*)\]\(([^)]+)\)', f.read_text(encoding='utf-8')):
+                  if target.startswith(('http://', 'https://', '#')):
+                      continue
+                  t = target.split('#')[0]
+                  p = (root / t.lstrip('/')) if t.startswith('/') else (f.parent / t)
+                  if not p.exists():
+                      broken.append(f'{f.relative_to(root)} -> {target}')
+          for b in broken:
+              print('BROKEN LINK', b)
+          print(f'{len(broken)} broken links')
+          sys.exit(1 if broken else 0)
+          PY

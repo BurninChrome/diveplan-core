@@ -187,16 +187,41 @@ sampling grids, not a behavioural difference. The concepts quoting "147" are
 left as they are; the number is illustrative of a phenomenon whose magnitude
 (max 112.5) is exact.
 
+## The error this pass did NOT catch
+
+An independent merge review, run afterwards, found one real mistake that
+survived all three earlier passes.
+
+The [nitrogen-fraction finding](/findings/nitrogen-fraction-inconsistency.md)
+stated the simulation loads tissues against `fN₂ = 0.79052`, drifting
+`+0.009073 bar (+1.240%)`. Wrong. [`gen_dive.py`](/tooling/gen-dive.md) holds
+`O2 = .20948` internally but prints every line with `"%.2f"`, so the value that
+reaches `dive` is `0.21` and the true figures are `fN₂ = 0.79`,
+`+0.008586 bar (+1.173%)`.
+
+**Why the confirmation pass missed it.** The harness above links directly
+against `libbuhlmann.a` and calls the C functions with arguments *it* chooses.
+It never ran the Python generator, so it could confirm every library-level claim
+while remaining blind to what the generator actually emits. The claim lived in
+the gap between the two.
+
+The lesson generalises past this bug: **linking against the library is not the
+same as exercising the pipeline.** Anything asserted about a value that crosses
+the stdin/stdout boundary has to be checked by running the real programs and
+reading the real bytes — which is exactly what the reviewer did, with two lines
+of `printf | src/dive`.
+
 ## What this says about the method
 
 The transcription approach was sound: parsing the constant tables straight out
 of the `.c` files rather than retyping them, and preserving `stop.c`'s exact
 control flow rather than its intent, is what made the results reproducible.
 
-It also vindicates the discipline the review pass imposed. The claims that
-failed under review were the ones nobody had derived — the estimated assertion
-count, the fabricated XML unit, "bit-identical". Every claim that *was* derived
-survived contact with the compiler.
+The pattern across all four passes is consistent. Every claim that was
+*derived* — from source, from a formula, from execution — survived. Every claim
+that was *inferred* from a plausible-looking nearby fact failed: the estimated
+assertion count, the fabricated XML unit, "bit-identical", and now a constant
+read from a source file instead of from the output it produces.
 
 # Related
 

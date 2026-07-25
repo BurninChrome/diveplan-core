@@ -64,10 +64,11 @@ P_He = (1.0 − 0.0627 + 0) × 0.0      = 0.0 bar
 `0.731881332` is therefore the starting nitrogen pressure of all 16
 compartments in every run. It is a useful sentinel when debugging output.
 
-Note the nitrogen fraction used is **0.78084** (dry atmospheric N₂), not the
-0.79 commonly rounded to in dive tables, and not `1 − 0.20948 = 0.79052` which
-would be consistent with the O₂ fraction [`gen_dive.py`](/tooling/gen-dive.md)
-emits. The inconsistency is small (≈1.2%) and long-standing.
+Note the nitrogen fraction used here is **0.78084** (dry atmospheric N₂), while
+the simulation loop then works from `1 − fO₂ = 0.79`, since
+[`gen_dive.py`](/tooling/gen-dive.md) emits `0.21` after `%.2f` formatting. The
+inconsistency is ≈1.17% and long-standing — see
+[the finding](/findings/nitrogen-fraction-inconsistency.md).
 
 # Related
 

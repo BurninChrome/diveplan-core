@@ -115,10 +115,14 @@ compares the result to an independently computed NDL. See
 
 # Reproduction
 
-No build was possible in the authoring environment (no C toolchain), so this was
-reproduced by transcribing `alveolar.c`, `haldane.c`, `ceiling.c`,
-`compartment.c` and `stop.c` into Python line for line, including `stop.c`'s
-control flow, and bisecting the ceiling crossing for the reference. Method:
+Originally derived by transcribing `alveolar.c`, `haldane.c`, `ceiling.c`,
+`compartment.c` and `stop.c` into Python line for line — including `stop.c`'s
+control flow — and bisecting the ceiling crossing for the reference, because no
+C toolchain was available at authoring time.
+
+**Since confirmed against the compiled library.** A harness linked against
+`libbuhlmann.a` reproduces the ratios exactly: 1.52 / 1.64 / 1.58 / 1.58 / 1.54×
+at 20–60 m, and the 112.5 maximum. Method and full confirmation table:
 [verification method](/decisions/2026-07-25-bundle-verification-method.md).
 
 Verify on a machine with a compiler by adding to `test_buhlmann.c`:

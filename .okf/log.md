@@ -39,6 +39,28 @@ literature and confirmed against the compiled library, all on the same day.
   Suggestive of a collapsed pair, not conclusive, since other counting
   conventions can reach twelve. Recorded in
   [the unverified-table finding](/findings/zh-l12-unverified.md).
+* **Correction**: *Independent merge review of PR #2.* A third agent reviewed
+  the bundle for merge-readiness and found **one genuine factual error** that
+  three earlier passes missed. The
+  [nitrogen-fraction finding](/findings/nitrogen-fraction-inconsistency.md)
+  claimed `fN₂ = 0.79052` and a drift of `+0.009073 bar (+1.240%)`, derived from
+  `gen_dive.py`'s internal `O2 = .20948`. But every `out.write()` formats with
+  `"%.2f"`, so `dive` actually reads `0.21`: the true values are `fN₂ = 0.79`,
+  equilibrium `0.740467 bar`, drift `+0.008586 bar (+1.173%)`, ceiling drift
+  0.070 m. Confirmed against the binary and corrected across six concepts. Root
+  cause recorded in
+  [the verification method](/decisions/2026-07-25-bundle-verification-method.md):
+  linking against the library is not the same as exercising the pipeline.
+* **Update**: Acted on the rest of the review. Replaced the CI bundle check —
+  which only tested frontmatter and skipped `index.md`/`log.md` — with real OKF
+  §9 conformance plus cross-link integrity, implemented inline so CI has no
+  network dependency. Added `permissions: contents: read` and a `concurrency`
+  group, limited push builds to `main`, and **removed the English-only gate**:
+  `ó` is not Polish-specific and would have failed on any French or Spanish
+  citation, in a repository that ships French PDFs. Narrowed `*.log` in
+  `.gitignore`, which was unanchored in a project whose subject is dive logs.
+  Deleted the dead `.travis.yml`. Added the two `doc/adr/` records `CLAUDE.md`
+  requires, and a pointer from `CLAUDE.md` to this bundle so it is discoverable.
 * **Update**: *Defect-register consolidation.* Promoted six defects that were
   documented only inside component and tooling pages into first-class findings,
   so [`findings/`](/findings/index.md) is now the complete register rather than

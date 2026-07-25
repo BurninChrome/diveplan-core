@@ -93,7 +93,7 @@ policy-protected file.
 Callers pass `n2_ratio` explicitly rather than having it derived. In
 [`dive.c`](/components/dive-cli.md) it is computed as `1.0 - o2 - he`, so any
 trace gas in the mix is silently accounted as nitrogen. For air that means
-0.79052 rather than the 0.78084 used to initialise the compartments — see
+0.79 rather than the 0.78084 used to initialise the compartments — see
 [units and conventions](/domain/units-and-conventions.md).
 
 # Test coverage
