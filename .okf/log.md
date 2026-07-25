@@ -1,0 +1,161 @@
+# Update Log
+
+## 2026-07-25
+
+Entries newest first. The bundle was authored, reviewed and validated against
+the literature on the same day.
+
+* **Update**: *ZH-L12 currency investigation.* Confirmed `zh_l12` is the only
+  table referenced in production code — three live call sites in `dive.c`, zero
+  for all three ZH-L16 tables. Researched industry usage and added the findings
+  to [the ZH-L12/ZH-L16C finding](/findings/dive-uses-zh-l12-not-zh-l16c.md):
+  ZH-L16C is the de facto standard across current dive computers, ZH-L12 was
+  superseded in 1990 but survives as a selectable legacy option in at least one
+  current technical computer, and the two models are **not** ordered by
+  conservatism — ZH-L12 is more permissive shallow, more conservative deep on
+  air, and more permissive at every depth on trimix.
+* **Finding**: A structural check on the otherwise unverifiable ZH-L12 table —
+  the name means "twelve pairs of coefficients for sixteen half-value times",
+  but `src/zh-l12.c` contains only **eleven** distinct nitrogen `(a, b)` pairs.
+  Suggestive of a collapsed pair, not conclusive, since other counting
+  conventions can reach twelve. Recorded in
+  [the unverified-table finding](/findings/zh-l12-unverified.md).
+* **Update**: *Defect-register consolidation.* Promoted six defects that were
+  documented only inside component and tooling pages into first-class findings,
+  so [`findings/`](/findings/index.md) is now the complete register rather than
+  a subset:
+  [`zh_l12` unverified](/findings/zh-l12-unverified.md),
+  [gen_dive.py gas handling](/findings/gen-dive-gas-handling.md),
+  [parse_dive.py robustness](/findings/parse-dive-robustness.md),
+  [dive.c passes the wrong pressure to the NDL](/findings/dive-passes-wrong-pressure-to-ndl.md),
+  [the nitrogen fraction inconsistency](/findings/nitrogen-fraction-inconsistency.md),
+  and [`dive` compiling without warning flags](/findings/dive-built-without-warnings.md).
+  Fifteen findings total; the policy's compliance table and the suggested fix
+  ordering were updated to match.
+* **Correction**: The XML corpus holds **39** dive logs, not 40 as five concepts
+  claimed. Also confirmed by running all 39 through
+  [`parse_dive.py`](/tooling/parse-dive.md) that **none triggers** the
+  first-sample `NameError` — the earlier write-up implied an observed crash;
+  it is latent only.
+* **Validation**: *Literature validation pass.* Checked every equation and
+  constant against Bühlmann's derivation formulas, the published ZH-L16C table,
+  Baker's *Understanding M-values*, and RK4 integration of the underlying
+  perfusion ODE. Recorded in
+  [the validation record](/decisions/2026-07-25-model-validation.md).
+  **The equations are correct** — Haldane and Schreiner reproduce the analytic
+  solution to 6e-14 for both descent and ascent, the alveolar constants match
+  47 mmHg and 40 mmHg, the M-value inversion matches Baker's slope-intercept
+  definition, and the He/N₂ half-time ratios match Graham's law.
+* **Finding**: [ZH-L16 nitrogen `a` coefficients do not match the published
+  tables](/findings/zh-l16-a-coefficients-nonstandard.md). 11 of 96 cells in
+  `zh_l16C` differ, all in one column, 10 of them less conservative; the table
+  labelled `zh_l16A` deviates from the formula that defines that variant and
+  carries ZH-L16B values; `zh_l16C` row 0's `b = 0.5240` should be 0.5050.
+  Effect once ZH-L16C is adopted: ~0.25 m of missing conservatism on exposures
+  long enough for the middle compartments to control. Reported, not fixed.
+* **Update**: Recorded that **`zh_l12` remains unverified** — its coefficients
+  are empirical, so there is no formula to test them against, and it is the
+  table the CLI actually runs. Flagged as the most valuable outstanding check.
+
+* **Update**: *Review pass.* Independent review against the source by a second
+  agent, which re-derived the headline numbers from its own transcription and
+  confirmed all three high-severity findings unchanged. Nine factual errors
+  elsewhere were corrected; the method and the lessons are recorded in
+  [the verification ADR](/decisions/2026-07-25-bundle-verification-method.md).
+* **Correction**: [`parse_dive.py`](/tooling/parse-dive.md) and
+  [units](/domain/units-and-conventions.md) claimed the dive-log XML stores
+  decimetres and that the script divides twice. **Both false and unsupported by
+  the source** — the XML stores metres and the script divides once. Also added
+  the first-sample `NameError` the page had missed.
+* **Correction**: Test-assertion counts ("~120", "~80 ZH-L16C") replaced with
+  measured figures — 78 call sites, 202 runtime checks, of which 23/147 are
+  ZH-L16C — across [test suite](/tooling/test-suite.md),
+  [CI](/findings/ci-never-runs-c-tests.md),
+  [ZH-L12/16C](/findings/dive-uses-zh-l12-not-zh-l16c.md) and two playbooks.
+* **Correction**: "Bit-identical" air output in
+  [the ceiling finding](/findings/ceiling-vs-mvalue-divergence.md) weakened to
+  agreement within 4.4e-16 (21 of 198 cases differ in the last bit); the
+  single-gas crossover threshold corrected from "~0.5 bar" to 0.17–0.27 bar; and
+  the false premise "tissue N₂ never drops below surface equilibrium" replaced
+  with the coefficient inequality that actually justifies the conclusion.
+* **Correction**: [`nodecotime()`](/components/stop.md) can return **more** than
+  100 — 112.5 in 147 sampled cases — so only
+  [`dive.c`](/components/dive-cli.md)'s `fmin` seed enforces the documented cap.
+  Both pages had implied the function bounds itself.
+* **Correction**: [`gen_dive.py`](/tooling/gen-dive.md) — a zero-duration `-o`
+  deco gas stalls `nbdeco` and silently disables every later deco gas. The page
+  had recommended that very usage.
+* **Correction**: ten declared header functions, not eight
+  ([C API](/interfaces/c-api.md)); eight defects, not seven
+  ([policy](/decisions/algorithm-integrity-policy.md)); thirteen `.c` files, not
+  twelve ([onboarding](/playbooks/onboard-to-the-codebase.md)); `zh_l12` named
+  three times, not five; an empty translation unit is a constraint violation
+  requiring a diagnostic, not undefined behaviour
+  ([empty TU](/components/buhlmann-empty-tu.md)); plus line counts, a reversed
+  troubleshooting row, and an unsourced water-vapour figure.
+* **Update**: Deduplicated the NDL and visualiser tables that had been restated
+  across concepts, added project provenance to
+  [getting started](/getting-started.md), and filled in missing `resource`
+  fields.
+
+* **Creation**: *Authoring pass — the entries below record the initial build.*
+* **Creation**: Scaffolded the bundle with `okf_init.py`, then replaced the
+  scaffold with a full survey of the repository — 46 concepts across
+  [domain](/domain/index.md), [components](/components/index.md),
+  [interfaces](/interfaces/index.md), [tooling](/tooling/index.md),
+  [decisions](/decisions/index.md), [findings](/findings/index.md) and
+  [playbooks](/playbooks/index.md).
+* **Creation**: Documented the decompression theory independently of the code —
+  [the ZH-L model](/domain/buhlmann-model.md),
+  [gas loading](/domain/inert-gas-loading.md),
+  [alveolar pressure](/domain/alveolar-pressure.md),
+  [M-values](/domain/m-values-and-ceiling.md),
+  [NDL](/domain/no-decompression-limit.md),
+  [gradient factors](/domain/gradient-factors.md),
+  [oxygen toxicity](/domain/oxygen-toxicity.md) and
+  [units](/domain/units-and-conventions.md).
+* **Creation**: Documented all 13 C modules plus
+  [the architecture](/components/architecture.md), and captured the four
+  [constant tables](/components/tissue-constant-tables.md) in full.
+* **Creation**: Wrote up both contracts —
+  [the C API](/interfaces/c-api.md) and
+  [the 36-field stdio format](/interfaces/dive-stdio-format.md).
+* **Finding**: [`nodecotime()` over-reports the no-decompression limit by
+  1.5–1.7×](/findings/nodecotime-overestimates-ndl.md). Two compounding causes:
+  the function returns the next untested candidate rather than the validated
+  one, and its acceptance band treats a 1 m ceiling as no-deco. Reported, not
+  fixed.
+* **Finding**: [`zh_l16A` and `zh_l16B` declare 17 compartments and initialise
+  16](/findings/zh-l16ab-phantom-compartment.md), leaving a zero-filled row that
+  yields NaN. Latent — nothing calls those tables. Reported, not fixed.
+* **Finding**: [`getCeiling()` and `compartment_mvalue()` disagree by up to
+  3.7 m on trimix](/findings/ceiling-vs-mvalue-divergence.md); the CLI uses the
+  less conservative rule. Air output is unaffected at printed precision.
+  Reported, not fixed.
+* **Finding**: [CI has never run the C test
+  suite](/findings/ci-never-runs-c-tests.md) — Travis is defunct and only ever
+  invoked the Python test. Identified as the precondition for all other quality
+  work.
+* **Finding**: [the CLI runs ZH-L12 while the project designates ZH-L16C as
+  primary](/findings/dive-uses-zh-l12-not-zh-l16c.md), so the well-tested table
+  is the one nothing loads.
+* **Finding**: [`doc/api.md` still documents OTU bugs fixed in March
+  2026](/findings/stale-api-doc.md), plus three further drifted passages.
+* **Finding**: [`compartment_mvalue()` returns NaN for a zeroed
+  compartment](/findings/mvalue-division-by-zero.md) — low severity alone, but a
+  prerequisite for the ceiling fix.
+* **Finding**: [`visoutput.py` drops the last helium column and converts decimal
+  minutes to seconds with ×100](/findings/visoutput-he-column.md).
+* **Decision**: Recorded [how every numeric claim was
+  verified](/decisions/2026-07-25-bundle-verification-method.md) — no C
+  toolchain was available, so the exact C formulas were transcribed to Python
+  and the constant tables parsed from source. Limits documented.
+* **Update**: Mirrored the three existing repository ADRs into
+  [`decisions/`](/decisions/index.md) with current status and cross-links, and
+  wrote up [the algorithm integrity policy](/decisions/algorithm-integrity-policy.md)
+  including a suggested dependency-ordered fix sequence.
+* **Creation**: Four playbooks —
+  [onboarding](/playbooks/onboard-to-the-codebase.md),
+  [running a simulation](/playbooks/run-a-dive-simulation.md),
+  [adding a constant table](/playbooks/add-a-constant-table.md) and
+  [reporting an algorithm bug](/playbooks/report-an-algorithm-bug.md).
