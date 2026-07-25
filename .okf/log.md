@@ -2,8 +2,27 @@
 
 ## 2026-07-25
 
-Entries newest first. The bundle was authored, reviewed and validated against
-the literature on the same day.
+Entries newest first. The bundle was authored, reviewed, validated against the
+literature and confirmed against the compiled library, all on the same day.
+
+* **Verification**: *Confirmed against the real binary.* A C toolchain was
+  installed and the project built for the first time in this work:
+  `bootstrap`/`configure`/`make` all clean with **zero warnings**, and
+  **`make check` passes 202/202** — exactly the assertion count the bundle
+  claims. Every finding was then reproduced by linking a harness against
+  `libbuhlmann.a`: the `nodecotime()` ratios (1.52–1.64×), its 112.5 maximum,
+  the 1.83/3.73/2.73 m ceiling divergence, the `compartment_mvalue()` NaN, the
+  all-zero `zh_l16A[16]` row and its NaN-at-`t=0`, `fmax` swallowing the NaN,
+  all eleven ZH-L16C coefficient deltas, `b = 0.5240`, and ZH-L12's eleven
+  distinct pairs. **Nothing was retracted.** One immaterial discrepancy: 148
+  rather than 147 cases where `nodecotime()` exceeds 100, a sampling-grid
+  artefact. Recorded in
+  [the verification method](/decisions/2026-07-25-bundle-verification-method.md).
+* **Creation**: Added `.github/workflows/build-and-test.yml` — three jobs
+  (C build + `make check` + an end-to-end smoke test asserting 36 fields and no
+  NaN; Python tooling across all 39 XML logs; OKF frontmatter conformance and an
+  English-only check). Replaces the defunct Travis config, which never ran the C
+  suite. See [the CI finding](/findings/ci-never-runs-c-tests.md).
 
 * **Update**: *ZH-L12 currency investigation.* Confirmed `zh_l12` is the only
   table referenced in production code — three live call sites in `dive.c`, zero

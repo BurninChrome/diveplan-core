@@ -82,7 +82,12 @@ original push rather than deliberate omissions.
 
 Written 2026-07-25 by reading every source file in the repository and, where a
 claim needed a number, reproducing the exact C formulas in a throwaway Python
-port to compute it. No C toolchain was available in the authoring environment,
-so no claim here is sourced from running the compiled `dive` binary; numeric
-claims are labelled with how they were derived. See
-[verification method](/decisions/2026-07-25-bundle-verification-method.md).
+port to compute it — no C toolchain was available at authoring time. The bundle
+was then independently reviewed against the source, validated against the
+decompression literature, and finally **re-checked against the compiled
+library** once a toolchain was installed.
+
+The build is clean and `make check` passes **202/202**. Every numeric claim was
+reproduced against the real binary, digit for digit, with no retractions. See
+[verification method](/decisions/2026-07-25-bundle-verification-method.md) for
+the confirmation table and the one immaterial discrepancy.

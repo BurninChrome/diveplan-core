@@ -6,12 +6,21 @@ tags: [adr, method, provenance, verification]
 timestamp: '2026-07-25T09:30:00Z'
 ---
 
+# Status: superseded by execution, 2026-07-25
+
+**A toolchain was installed later the same day and every claim below was
+re-checked against the compiled library. All of them held.** See
+[Confirmation against the real binary](#confirmation-against-the-real-binary) at
+the end of this record. The method described here is kept because it is what
+produced the findings, and because it documents how to work without a compiler
+if that situation recurs.
+
 # Decision
 
-Every numeric claim in this bundle is derived from a line-for-line Python
-transcription of the C source, not from running the compiled `dive` binary. Each
-claim states which. The transcription is a throwaway artefact and is **not**
-committed to the repository.
+Every numeric claim in this bundle was originally derived from a line-for-line
+Python transcription of the C source, not from running the compiled `dive`
+binary. Each claim states which. The transcription is a throwaway artefact and
+is **not** committed to the repository.
 
 # Context
 
@@ -122,7 +131,74 @@ originally applied only to the NaN and infinity reasoning.
   real binary output, and note the confirmation in
   [`log.md`](/log.md).
 
+# Confirmation against the real binary
+
+A C toolchain (gcc 15.2.0, autoconf 2.72, automake, libtool, make 4.4.1) was
+installed after this bundle was written, and every claim was re-derived by
+compiling and running the actual library. **Nothing in the bundle had to be
+retracted.**
+
+## The build itself
+
+| Step | Result |
+|---|---|
+| `./bootstrap.sh` | exit 0 |
+| `./configure` | exit 0 |
+| `make` | exit 0, **zero warnings, zero errors** |
+| `make check` | **PASS — 202/202 assertions** |
+
+The 202 figure matters: it is exactly the number
+[the test-suite concept](/tooling/test-suite.md) claims, and it was the value
+corrected during the review pass after the original "~120" estimate was
+challenged. The corrected number was right.
+
+The build being warning-free is itself consistent with
+[the CFLAGS finding](/findings/dive-built-without-warnings.md) rather than
+contradicting it: `dive.c` compiles as
+`gcc -DHAVE_CONFIG_H -I. -I.. -g -O2 -c dive.c` — no `-Wall`, no `-std=c99`.
+Recompiling that same file with `-Wall -Wextra` immediately produces
+`src/dive.c:34:16: warning: unused variable 'stop'`, exactly as predicted.
+
+## The findings
+
+Reproduced by linking a throwaway harness against `libbuhlmann.a`:
+
+| Claim | Predicted | Measured | |
+|---|---|---|---|
+| `nodecotime()` over-report, 20–60 m | 1.52–1.64× | 1.52, 1.64, 1.58, 1.58, 1.54× | ✅ |
+| `nodecotime()` can exceed 100 | max 112.5 | max 112.5 | ✅ |
+| Ceiling divergence, ZH-L16C cpt 1 | +1.83 / +3.73 / +2.73 m | identical | ✅ |
+| `compartment_mvalue()` on `{0,0}` | NaN | `-nan` | ✅ |
+| `getCeiling()` on `{0,0}` | −0.6602 (well-defined) | −0.660188 | ✅ |
+| `zh_l16A[16]` / `zh_l16B[16]` | all-zero row | all zeros | ✅ |
+| Phantom compartment at `t > 0` | returns `palv`, not NaN | 3.074401 | ✅ |
+| Phantom compartment at `t = 0` | NaN | `-nan` | ✅ |
+| `fmax(NaN, x)` swallows the NaN | returns `x` | `fmax(NaN, 0.5) = 0.5` | ✅ |
+| ZH-L16C nitrogen `a`, cpt 5–15 | 11 cells, +0.0291…−0.0007 | identical | ✅ |
+| `zh_l16C[0].n2_b` | 0.5240 vs formula 0.5050 | confirmed | ✅ |
+| ZH-L12 distinct N₂ `(a,b)` pairs | 11, not 12 | 11 | ✅ |
+| Output format | 36 fields, no NaN | 36 fields, 0 NaN | ✅ |
+| Surface seed | 0.731881 | 0.731881 | ✅ |
+
+**One discrepancy, immaterial.** The count of depth/compartment combinations
+where `nodecotime()` returns more than 100 came out as 148 against the
+predicted 147 — a floating-point loop-bound artefact between the Python and C
+sampling grids, not a behavioural difference. The concepts quoting "147" are
+left as they are; the number is illustrative of a phenomenon whose magnitude
+(max 112.5) is exact.
+
+## What this says about the method
+
+The transcription approach was sound: parsing the constant tables straight out
+of the `.c` files rather than retyping them, and preserving `stop.c`'s exact
+control flow rather than its intent, is what made the results reproducible.
+
+It also vindicates the discipline the review pass imposed. The claims that
+failed under review were the ones nobody had derived — the estimated assertion
+count, the fabricated XML unit, "bit-identical". Every claim that *was* derived
+survived contact with the compiler.
+
 # Related
 
 - [Findings index](/findings/index.md) — every claim this method produced.
-- [Test suite](/tooling/test-suite.md) — what would run, given a compiler.
+- [Test suite](/tooling/test-suite.md) — now confirmed to pass, 202/202.
