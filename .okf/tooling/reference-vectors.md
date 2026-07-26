@@ -40,9 +40,11 @@ formula because both sides agree.
 | `haldane.tsv` | 72 | [Constant-pressure loading](/components/haldane.md) at 0/1/2/3 half-times, on- and off-gassing |
 | `schreiner.tsv` | 80 | [Ramp loading](/components/schreiner.md), descent and ascent, `rate=0` reducing to Haldane |
 | `ceiling.tsv` | 48 | [Combined-gas ceiling](/domain/m-values-and-ceiling.md) by the Bühlmann blend rule |
-| `gradient-tolerance.tsv` | 108 | [GF-adjusted tolerance](/domain/ascent-and-stop-scheduling.md) at GF 1.00 → 0.30 |
-| `ndl.tsv` | 18 | [NDL](/domain/no-decompression-limit.md) by bisection on the ceiling crossing |
-| `zh-l16-derivation.tsv` | 49 | [Coefficients](/components/tissue-constant-tables.md) against `a = 2/∛t½`, `b = 1.005 − 1/√t½` |
+| `gradient-tolerance.tsv` | 18 (+90 unreachable) | [GF-adjusted tolerance](/domain/ascent-and-stop-scheduling.md) at GF 1.00 → 0.30 |
+| `ndl-air.tsv` | 12 | [NDL](/domain/no-decompression-limit.md) on air, by bisection on the ceiling crossing |
+| `ndl-trimix.tsv` | 6 | Same on trimix — split out, it fails for a different reason and by a far larger factor |
+| `zh-l16a-derivation.tsv` | 47 | **ZH-L16A** against `a = 2/∛t½` — the formula that *defines* variant A |
+| `zh-l16c-published.tsv` | 102 | **ZH-L16C** against the retyped published table, all six columns |
 
 # What they found
 
@@ -54,12 +56,14 @@ alveolar.tsv               90 checked    0 deviating   ok
 haldane.tsv                72 checked    0 deviating   ok
 schreiner.tsv              80 checked    0 deviating   ok
 ceiling.tsv                48 checked   24 deviating   known deviation
-gradient-tolerance.tsv    108 checked   90 deviating   known deviation
-ndl.tsv                    18 checked   16 deviating   known deviation
-zh-l16-derivation.tsv      49 checked   11 deviating   known deviation
+gradient-tolerance.tsv     18 checked    0 deviating   ok  (+90 unreachable)
+ndl-air.tsv                12 checked   10 deviating   known deviation
+ndl-trimix.tsv              6 checked    6 deviating   known deviation
+zh-l16a-derivation.tsv     47 checked    5 deviating   known deviation
+zh-l16c-published.tsv     102 checked   12 deviating   known deviation
 ```
 
-**The equations pass every vector. All 141 deviations are data or missing API.**
+**The equations pass every vector. All 57 deviations are data or missing API.**
 That is the same conclusion reached three times by different methods, and it is
 now a build artefact rather than a claim in a document.
 
@@ -86,9 +90,14 @@ Current allowances map one-to-one onto findings:
 | File | Allowed | Finding |
 |---|---:|---|
 | `ceiling.tsv` | 24 | [getCeiling vs compartment_mvalue](/findings/ceiling-vs-mvalue-divergence.md) |
-| `gradient-tolerance.tsv` | 90 | no GF primitive — [scope gap](/domain/ascent-and-stop-scheduling.md) |
-| `ndl.tsv` | 16 | [nodecotime over-reports](/findings/nodecotime-overestimates-ndl.md) |
-| `zh-l16-derivation.tsv` | 11 | [ZH-L16 coefficients](/findings/zh-l16-a-coefficients-nonstandard.md) |
+| `ndl-air.tsv` | 10 | [nodecotime over-reports 1.5–1.7×](/findings/nodecotime-overestimates-ndl.md) |
+| `ndl-trimix.tsv` | 6 | **the ceiling rule dominating**, 7–21× — not the same defect as the air rows |
+| `zh-l16a-derivation.tsv` | 5 | [zh_l16A is not ZH-L16A](/findings/zh-l16-a-coefficients-nonstandard.md) |
+| `zh-l16c-published.tsv` | 12 | [ZH-L16C coefficients](/findings/zh-l16-a-coefficients-nonstandard.md) |
+
+A third failure mode was added after review: **a wrong check count**. Emptying a
+vector file used to make its checks vanish from the report entirely and the
+suite passed. It now fails, as does a file that produces no checks at all.
 
 # Regression baseline
 

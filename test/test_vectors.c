@@ -24,7 +24,7 @@
 
 static const char *vector_dir = "vectors";
 
-struct result { char file[64]; int checked, failed; };
+struct result { char file[64]; int checked, failed, skipped, unparsed; };
 static struct result results[MAXFILES];
 static int nresults;
 
@@ -34,8 +34,28 @@ static struct result *bucket(const char *file)
     for (i = 0; i < nresults; i++)
         if (strcmp(results[i].file, file) == 0)
             return &results[i];
+    if (nresults >= MAXFILES) {
+        fprintf(stderr, "too many vector files (max %d)\n", MAXFILES);
+        exit(2);
+    }
+    memset(&results[nresults], 0, sizeof results[0]);
     snprintf(results[nresults].file, sizeof results[0].file, "%s", file);
     return &results[nresults++];
+}
+
+/* A data line that does not parse is a corrupt vector file, not something to
+   skip quietly: silence here is how a whole file can vanish and leave the
+   suite green. */
+static void unparsed(const char *file, const char *line)
+{
+    struct result *r = bucket(file);
+    if (r->unparsed++ < 3)
+        fprintf(stderr, "    %s: unparseable line: %.60s", file, line);
+}
+
+static void skipped(const char *file)
+{
+    bucket(file)->skipped++;
 }
 
 static const struct compartment_constants *table_of(const char *name, int *count)
@@ -80,9 +100,12 @@ static void check_alveolar(void)
     FILE *f = open_vectors("alveolar.tsv");
     char line[MAXLINE];
     double pamb, rq, ig, expected;
-    while (fgets(line, sizeof line, f))
-        if (line[0] != '#' && sscanf(line, "%lf %lf %lf %lf", &pamb, &rq, &ig, &expected) == 4)
-            check("alveolar.tsv", expected, ventilation(pamb, rq, ig), TOL, "palv");
+    while (fgets(line, sizeof line, f)) {
+        if (line[0] == '#' || line[0] == '\n') continue;
+        if (sscanf(line, "%lf %lf %lf %lf", &pamb, &rq, &ig, &expected) != 4)
+            { unparsed("alveolar.tsv", line); continue; }
+        check("alveolar.tsv", expected, ventilation(pamb, rq, ig), TOL, "palv");
+    }
     fclose(f);
 }
 
@@ -91,9 +114,12 @@ static void check_haldane(void)
     FILE *f = open_vectors("haldane.tsv");
     char line[MAXLINE];
     double pt0, palv, t, ht, expected;
-    while (fgets(line, sizeof line, f))
-        if (line[0] != '#' && sscanf(line, "%lf %lf %lf %lf %lf", &pt0, &palv, &t, &ht, &expected) == 5)
-            check("haldane.tsv", expected, haldane(pt0, palv, t, ht), TOL, "pt");
+    while (fgets(line, sizeof line, f)) {
+        if (line[0] == '#' || line[0] == '\n') continue;
+        if (sscanf(line, "%lf %lf %lf %lf %lf", &pt0, &palv, &t, &ht, &expected) != 5)
+            { unparsed("haldane.tsv", line); continue; }
+        check("haldane.tsv", expected, haldane(pt0, palv, t, ht), TOL, "pt");
+    }
     fclose(f);
 }
 
@@ -102,10 +128,12 @@ static void check_schreiner(void)
     FILE *f = open_vectors("schreiner.tsv");
     char line[MAXLINE];
     double pt0, palv0, rate, t, ht, expected;
-    while (fgets(line, sizeof line, f))
-        if (line[0] != '#' &&
-            sscanf(line, "%lf %lf %lf %lf %lf %lf", &pt0, &palv0, &rate, &t, &ht, &expected) == 6)
-            check("schreiner.tsv", expected, schreiner(pt0, palv0, rate, t, ht), TOL, "pt");
+    while (fgets(line, sizeof line, f)) {
+        if (line[0] == '#' || line[0] == '\n') continue;
+        if (sscanf(line, "%lf %lf %lf %lf %lf %lf", &pt0, &palv0, &rate, &t, &ht, &expected) != 6)
+            { unparsed("schreiner.tsv", line); continue; }
+        check("schreiner.tsv", expected, schreiner(pt0, palv0, rate, t, ht), TOL, "pt");
+    }
     fclose(f);
 }
 
@@ -116,9 +144,9 @@ static void check_ceiling(void)
     int idx, n;
     double n2_p, he_p, expected;
     while (fgets(line, sizeof line, f)) {
-        if (line[0] == '#') continue;
+        if (line[0] == '#' || line[0] == '\n') continue;
         if (sscanf(line, "%31s %d %lf %lf %lf", tname, &idx, &n2_p, &he_p, &expected) != 5)
-            continue;
+            { unparsed("ceiling.tsv", line); continue; }
         const struct compartment_constants *t = table_of(tname, &n);
         if (!t || idx >= n) continue;
         struct compartment_state s;
@@ -135,9 +163,9 @@ static void check_gradient_tolerance(void)
     int idx, n;
     double pt, gf, expected;
     while (fgets(line, sizeof line, f)) {
-        if (line[0] == '#') continue;
+        if (line[0] == '#' || line[0] == '\n') continue;
         if (sscanf(line, "%31s %d %lf %lf %lf", tname, &idx, &pt, &gf, &expected) != 5)
-            continue;
+            { unparsed("gradient-tolerance.tsv", line); continue; }
         const struct compartment_constants *t = table_of(tname, &n);
         if (!t || idx >= n) continue;
         /* There is no GF-aware entry point in the library. At gf == 1 the
@@ -145,8 +173,11 @@ static void check_gradient_tolerance(void)
            checked against getCeiling(); the rest cannot be checked at all
            until the primitive exists. */
         if (fabs(gf - 1.0) > 1e-12) {
-            bucket("gradient-tolerance.tsv")->checked++;
-            bucket("gradient-tolerance.tsv")->failed++;
+            /* Not a deviation — nothing is measured. There is no GF-aware
+               entry point to call, so these rows are unreachable rather than
+               wrong. Counting them as failures overstated what the suite
+               tests and made the ratchet structurally unable to fire. */
+            skipped("gradient-tolerance.tsv");
             continue;
         }
         struct compartment_state s;
@@ -156,16 +187,16 @@ static void check_gradient_tolerance(void)
     fclose(f);
 }
 
-static void check_ndl(void)
+static void check_ndl(const char *file)
 {
-    FILE *f = open_vectors("ndl.tsv");
+    FILE *f = open_vectors(file);
     char line[MAXLINE], tname[32];
     int n, i;
     double pamb, n2r, her, expected;
     while (fgets(line, sizeof line, f)) {
-        if (line[0] == '#') continue;
+        if (line[0] == '#' || line[0] == '\n') continue;
         if (sscanf(line, "%31s %lf %lf %lf %lf", tname, &pamb, &n2r, &her, &expected) != 5)
-            continue;
+            { unparsed(file, line); continue; }
         const struct compartment_constants *t = table_of(tname, &n);
         if (!t) continue;
         double surf_n2 = ventilation(1.0, BUHLMANN_RQ, 0.78084);
@@ -178,39 +209,62 @@ static void check_ndl(void)
             v = nodecotime(&t[i], &s, pamb, n2r, her);
             if (v < best) best = v;
         }
-        check("ndl.tsv", expected, best, 0.5, "min NDL");
+        check(file, expected, best, 0.5, "min NDL");
     }
     fclose(f);
 }
 
-static void check_zh_l16_derivation(void)
+static void check_zh_l16a_derivation(void)
 {
-    FILE *f = open_vectors("zh-l16-derivation.tsv");
+    FILE *f = open_vectors("zh-l16a-derivation.tsv");
     char line[MAXLINE];
     int idx;
     double ht, a_formula, b_formula;
     while (fgets(line, sizeof line, f)) {
-        if (line[0] == '#') continue;
+        if (line[0] == '#' || line[0] == '\n') continue;
         if (sscanf(line, "%d %lf %lf %lf", &idx, &ht, &a_formula, &b_formula) != 4)
-            continue;
+            { unparsed("zh-l16a-derivation.tsv", line); continue; }
         if (idx >= ZH_L16_NR_COMPARTMENTS) continue;
         /* 1e-4, not tighter: the tables store `f`-suffixed literals in double
-           fields, so every value is float-rounded then widened (38.3 reads
-           back as 38.2999992371). That is its own cleanup, tracked separately;
-           conflating it with wrong coefficients would muddle the counts. */
-        check("zh-l16-derivation.tsv", ht, zh_l16C[idx].n2_h, 1e-4, "half-time");
-        check("zh-l16-derivation.tsv", a_formula, zh_l16C[idx].n2_a, 1e-3, "a from formula");
-        /* Compartments 4 and 5 deviate from the b formula in the published
-           table itself; the generator's header records the values. */
-        if (idx != 4 && idx != 5)
-            check("zh-l16-derivation.tsv", b_formula, zh_l16C[idx].n2_b, 1e-3, "b from formula");
+           fields, so 38.3 reads back as 38.2999992371. Separate cleanup. */
+        check("zh-l16a-derivation.tsv", ht, zh_l16A[idx].n2_h, 1e-4, "A half-time");
+        check("zh-l16a-derivation.tsv", a_formula, zh_l16A[idx].n2_a, 1e-3, "A a = 2/cbrt(t)");
+        /* The 18.5 min compartment deviates from the b formula in the
+           published table itself (0.7825 against a computed 0.77250). Keyed on
+           the half-time, not the index: zh_l16A omits the 1b row, so 18.5 min
+           sits at index 3 there and index 4 in zh_l16C. */
+        if (fabs(ht - 18.5) > 1e-6)
+            check("zh-l16a-derivation.tsv", b_formula, zh_l16A[idx].n2_b, 1e-3,
+                  "A b = 1.005 - 1/sqrt(t)");
+    }
+    fclose(f);
+}
+
+static void check_zh_l16c_published(void)
+{
+    FILE *f = open_vectors("zh-l16c-published.tsv");
+    char line[MAXLINE];
+    int idx;
+    double ht, a, b, hht, ha, hb;
+    while (fgets(line, sizeof line, f)) {
+        if (line[0] == '#' || line[0] == '\n') continue;
+        if (sscanf(line, "%d %lf %lf %lf %lf %lf %lf",
+                   &idx, &ht, &a, &b, &hht, &ha, &hb) != 7)
+            { unparsed("zh-l16c-published.tsv", line); continue; }
+        if (idx >= ZH_L16_NR_COMPARTMENTS) continue;
+        check("zh-l16c-published.tsv", ht,  zh_l16C[idx].n2_h, 1e-4, "C N2 half-time");
+        check("zh-l16c-published.tsv", a,   zh_l16C[idx].n2_a, 1e-4, "C N2 a");
+        check("zh-l16c-published.tsv", b,   zh_l16C[idx].n2_b, 1e-4, "C N2 b");
+        check("zh-l16c-published.tsv", hht, zh_l16C[idx].he_h, 1e-3, "C He half-time");
+        check("zh-l16c-published.tsv", ha,  zh_l16C[idx].he_a, 1e-4, "C He a");
+        check("zh-l16c-published.tsv", hb,  zh_l16C[idx].he_b, 1e-4, "C He b");
     }
     fclose(f);
 }
 
 /* ------------------------------------------------------- expected failures */
 
-struct allowance { char file[64]; int allowed; char reason[160]; };
+struct allowance { char file[64]; int expect_checks, allowed; char reason[160]; };
 static struct allowance allowances[MAXFILES];
 static int nallowances;
 
@@ -224,23 +278,27 @@ static void load_allowances(void)
     while (fgets(line, sizeof line, f)) {
         struct allowance *a;
         if (line[0] == '#' || line[0] == '\n') continue;
+        if (nallowances >= MAXFILES) {
+            fprintf(stderr, "too many allowance entries (max %d)\n", MAXFILES);
+            exit(2);
+        }
         a = &allowances[nallowances];
-        if (sscanf(line, "%63s %d %159[^\n]", a->file, &a->allowed, a->reason) == 3)
+        if (sscanf(line, "%63s %d %d %159[^\n]",
+                   a->file, &a->expect_checks, &a->allowed, a->reason) == 4)
             nallowances++;
+        else
+            fprintf(stderr, "  malformed allowance line: %.60s", line);
     }
     fclose(f);
 }
 
-static int allowed_for(const char *file, const char **reason)
+static const struct allowance *allowance_for(const char *file)
 {
     int i;
     for (i = 0; i < nallowances; i++)
-        if (strcmp(allowances[i].file, file) == 0) {
-            *reason = allowances[i].reason;
-            return allowances[i].allowed;
-        }
-    *reason = NULL;
-    return 0;
+        if (strcmp(allowances[i].file, file) == 0)
+            return &allowances[i];
+    return NULL;
 }
 
 int main(int argc, char **argv)
@@ -262,31 +320,56 @@ int main(int argc, char **argv)
     check_schreiner();
     check_ceiling();
     check_gradient_tolerance();
-    check_ndl();
-    check_zh_l16_derivation();
+    check_ndl("ndl-air.tsv");
+    check_ndl("ndl-trimix.tsv");
+    check_zh_l16a_derivation();
+    check_zh_l16c_published();
 
-    printf("\n%-26s %8s %8s %8s   %s\n", "file", "checked", "failed", "allowed", "verdict");
+    printf("\n%-26s %8s %8s %8s %8s   %s\n",
+           "file", "checked", "expect", "failed", "allowed", "verdict");
     for (i = 0; i < nresults; i++) {
-        const char *reason = NULL;
-        int allowed = allowed_for(results[i].file, &reason);
+        const struct allowance *a = allowance_for(results[i].file);
+        int allowed = a ? a->allowed : 0;
+        int expect  = a ? a->expect_checks : -1;
         const char *verdict;
 
         total  += results[i].checked;
         failed += results[i].failed;
 
-        if (results[i].failed == 0 && allowed == 0) {
-            verdict = "ok";
+        if (results[i].unparsed) {
+            verdict = "CORRUPT - unparseable lines"; status = 1;
+        } else if (!a) {
+            verdict = "NO ALLOWANCE ENTRY"; status = 1;
+        } else if (results[i].checked != expect) {
+            verdict = "WRONG CHECK COUNT - data missing or changed"; status = 1;
         } else if (results[i].failed == allowed) {
-            verdict = "known deviation";
+            verdict = allowed ? "known deviation" : "ok";
         } else if (results[i].failed > allowed) {
             verdict = "REGRESSION"; status = 1;
         } else {
             verdict = "FIXED - update expected-failures.txt"; status = 1;
         }
-        printf("%-26s %8d %8d %8d   %s\n",
-               results[i].file, results[i].checked, results[i].failed, allowed, verdict);
-        if (reason && results[i].failed)
-            printf("%-26s %26s   %s\n", "", "", reason);
+        printf("%-26s %8d %8d %8d %8d   %s\n", results[i].file,
+               results[i].checked, expect, results[i].failed, allowed, verdict);
+        if (results[i].skipped)
+            printf("%-26s %8s %8d rows unreachable (no library entry point)\n",
+                   "", "skipped:", results[i].skipped);
+        if (a && a->reason[0] && results[i].failed)
+            printf("%-26s %26s   %s\n", "", "", a->reason);
+    }
+
+    /* A file listed in expected-failures.txt that produced no results at all
+       never ran — deleted, renamed, or emptied. Without this the suite reports
+       success on a corpus that has silently evaporated. */
+    for (i = 0; i < nallowances; i++) {
+        int j, seen = 0;
+        for (j = 0; j < nresults; j++)
+            if (strcmp(results[j].file, allowances[i].file) == 0) seen = 1;
+        if (!seen) {
+            printf("%-26s %8s %8d %8s %8s   MISSING - no vectors ran\n",
+                   allowances[i].file, "-", allowances[i].expect_checks, "-", "-");
+            status = 1;
+        }
     }
 
     printf("\n%d vectors checked, %d deviating\n", total, failed);

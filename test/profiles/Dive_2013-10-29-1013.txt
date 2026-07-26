@@ -1,3 +1,6 @@
+# Converted from test/xml/Dive_2013-10-29-1013.xml by test/parse_dive.py — do not edit.
+# Regenerate: python3 test/parse_dive.py -f test/xml/Dive_2013-10-29-1013.xml > test/profiles/Dive_2013-10-29-1013.txt
+# time_min pressure_bar fO2 fHe
 0.00 1.13 0.21 0.00
 0.33 1.58 0.21 0.00
 0.67 2.04 0.21 0.00

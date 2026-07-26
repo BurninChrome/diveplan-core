@@ -14,6 +14,35 @@
   regression, fewer means a defect was fixed without updating
   `expected-failures.txt`. That ties the vectors to the roadmap — each finding
   fixed is a number decreased and then a line deleted.
+* **Correction**: *Second independent review, of PR #3 — verdict DO NOT MERGE.*
+  Three blockers, all confirmed and all fixed:
+  **(1) The table vector encoded a less-conservative-than-published standard.**
+  `zh-l16-derivation.tsv` checked **ZH-L16C** against `a = 2/∛t½` — the formula
+  that *defines* ZH-L16**A**. It therefore demanded values up to **0.089 bar
+  less conservative** than published C, in the unsafe direction, and the
+  allowance pointed that mismatch at a finding measuring something else.
+  Verified the worst part: applying the finding's own correct fix left the
+  count at 11, so **the ratchet would not have fired for the right fix**. Split
+  into `zh-l16a-derivation.tsv` (A against its definition) and
+  `zh-l16c-published.tsv` (C against a retyped published table, all six
+  columns). The ratchet now fires correctly — confirmed by installing the
+  published values and watching it go red.
+  **(2) Both suites passed vacuously on missing data.** Emptying a vector file
+  removed it from the report and the suite still exited 0; deleting 20 of 43
+  profiles likewise; one corrupt profile gave "0 comparisons — unchanged".
+  `expected-failures.txt` now carries a required check count per file, and a
+  listed file producing nothing is reported MISSING. Unparseable lines are a
+  hard error.
+  **(3) The NDL allowance blamed the wrong defect.** The 6 trimix rows deviate
+  by **7–21×**, not the 1.5–1.7× stated, and the dominant cause is the ceiling
+  rule propagating through `nodecotime`, not `nodecotime` itself. Split into
+  `ndl-air.tsv` and `ndl-trimix.tsv` with separate attribution.
+  Also from the review: GF rows now report as *skipped* rather than *failed*
+  (nothing was measured); the `b`-formula exclusion is keyed on half-time, not
+  index, since `zh_l16A` omits row 1b; `-Werror` now covers the test suites;
+  profiles carry provenance headers with a CI check that they still match the
+  XML; and `MAXSTEPS`/`MAXPROF` overflow is a hard error rather than silent
+  truncation.
 * **Correction**: *The regression baseline tested the wrong thing.* The first
   version ran `parse_dive.py | src/dive` and hashed the 36-field output — for a
   **library**, that pins the demo. A changed hash could mean the library,

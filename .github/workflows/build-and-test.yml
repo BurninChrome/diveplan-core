@@ -39,8 +39,10 @@ jobs:
       # The C unit tests have never run in CI before this workflow existed:
       # .travis.yml only ever invoked the Python test. See
       # .okf/findings/ci-never-runs-c-tests.md
+      # CFLAGS repeated here: `make` alone does not build check_PROGRAMS, so
+      # without this the -Werror gate would miss every line of the test suites.
       - name: Run unit tests
-        run: make check
+        run: make check CFLAGS="-O2 -Werror"
 
       - name: Show test log on failure
         if: failure()
@@ -74,6 +76,21 @@ jobs:
       - name: Run Python unit tests
         working-directory: test
         run: python3 -m unittest discover -v
+
+      # test/profiles/*.txt are converted from test/xml/. Nothing else ties
+      # them together, so verify the conversion is still reproducible.
+      - name: Converted profiles match their XML sources
+        run: |
+          fail=0
+          for x in test/xml/*.xml; do
+            b=$(basename "$x" .xml)
+            python3 test/parse_dive.py -f "$x" > /tmp/p.txt
+            if ! diff -q <(grep -v '^#' "test/profiles/$b.txt") /tmp/p.txt > /dev/null; then
+              echo "stale: test/profiles/$b.txt"; fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] && echo "all 39 converted profiles match their XML"
+          exit $fail
 
       - name: Check the profile generators run
         run: |

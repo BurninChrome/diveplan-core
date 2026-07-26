@@ -48,11 +48,21 @@ static int load_profile(const char *path, struct sample *s, int max)
     int n = 0;
     FILE *f = fopen(path, "r");
     if (!f) return -1;
-    while (n < max && fgets(line, sizeof line, f)) {
+    while (fgets(line, sizeof line, f)) {
         if (line[0] == '#' || line[0] == '\n') continue;
+        if (n >= max) {          /* truncating and then RECORDING the truncation
+                                    would bake a short profile into the baseline */
+            fprintf(stderr, "  %s: more than %d samples; raise MAXSTEPS\n", path, max);
+            fclose(f);
+            exit(2);
+        }
         if (sscanf(line, "%lf %lf %lf %lf",
-                   &s[n].t, &s[n].p, &s[n].o2, &s[n].he) == 4)
-            n++;
+                   &s[n].t, &s[n].p, &s[n].o2, &s[n].he) != 4) {
+            fprintf(stderr, "  %s:%d: unparseable sample\n", path, n + 1);
+            fclose(f);
+            exit(2);
+        }
+        n++;
     }
     fclose(f);
     return n;
@@ -131,10 +141,14 @@ static int collect(char names[][NAMELEN], int max)
     struct dirent *e;
     int n = 0;
     if (!d) { fprintf(stderr, "cannot open %s\n", profile_dir); exit(2); }
-    while ((e = readdir(d)) && n < max) {
+    while ((e = readdir(d))) {
         size_t len = strlen(e->d_name);
-        if (len > 4 && len < NAMELEN && strcmp(e->d_name + len - 4, ".txt") == 0)
-            memcpy(names[n++], e->d_name, len + 1);
+        if (len <= 4 || strcmp(e->d_name + len - 4, ".txt") != 0) continue;
+        if (n >= max || len >= NAMELEN) {
+            fprintf(stderr, "too many or too-long profile names; raise MAXPROF/NAMELEN\n");
+            exit(2);
+        }
+        memcpy(names[n++], e->d_name, len + 1);
     }
     closedir(d);
     /* readdir order is filesystem-dependent; sort so the recorded baseline is

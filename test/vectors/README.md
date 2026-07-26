@@ -21,9 +21,9 @@ equations, so agreement means something.
 *should* behave. They do not change when a bug is fixed — the bug was always a
 deviation from them.
 
-**The regression baseline** (`../baseline.sha256`, checked by `../baseline.sh`)
-records what the model *currently* outputs across the 39 real dive logs in
-`../xml/`, defects included. It only detects change.
+**The regression baseline** (`../profiles/expected.tsv`, checked by
+`test_profiles`) replays 43 profiles through the library and records what it
+*currently* produces, defects included. It only detects change.
 
 Keeping these apart matters. A golden file recorded from buggy output slowly
 becomes the specification if nobody remembers what it was for; that is how a
@@ -39,26 +39,47 @@ baseline is a tripwire.
 | `schreiner.tsv` | Ramp loading, descent and ascent, including `rate = 0` reducing to Haldane |
 | `ceiling.tsv` | Combined-gas ceiling by the Bühlmann rule (`a`, `b` blended by partial-pressure share) |
 | `gradient-tolerance.tsv` | GF-adjusted tolerated ambient pressure at GF 1.00 → 0.30 |
-| `ndl.tsv` | No-decompression limit, by bisection on the ceiling crossing |
-| `zh-l16-derivation.tsv` | ZH-L16 coefficients against `a = 2/∛t½`, `b = 1.005 − 1/√t½` |
+| `ndl-air.tsv` | No-decompression limit on air, by bisection on the ceiling crossing |
+| `ndl-trimix.tsv` | Same on trimix 21/35 — split out because it fails for a *different* reason and by a far larger factor |
+| `zh-l16a-derivation.tsv` | **ZH-L16A** against `a = 2/∛t½`, `b = 1.005 − 1/√t½` — the formula that defines variant A |
+| `zh-l16c-published.tsv` | **ZH-L16C** against the retyped published table, all six columns |
+
+### Why the tables are checked two different ways
+
+`a = 2/∛t½` *defines* ZH-L16A. Bühlmann derived A mathematically, then lowered
+`a` by hand in the middle compartments to get B and C. So checking C against
+that formula would demand C hold A's values — **up to 0.089 bar less
+conservative than published, in the unsafe direction**. An earlier version of
+this directory did exactly that. A is therefore checked against the formula, C
+against a retyped published table, and B is not checked at all: its `a` column
+could not be sourced to the same standard, and inventing a reference is the
+defect being avoided.
 
 ## Expected failures
 
-`expected-failures.txt` lists, per file, how many vectors currently deviate and
-why, each with a pointer to its write-up in `.okf/findings/`. CI stays green on
-known defects and fails on new ones.
+`expected-failures.txt` lists, per file, the number of checks it must produce,
+how many currently deviate, and why — each with a pointer to its write-up in
+`.okf/findings/`.
 
-The runner also **fails when there are fewer deviations than allowed**. That is
-deliberate: fixing a defect must update this file in the same change, which is
-how the fix proves it did what it claimed.
+Three ways a line fails the build, all deliberate:
+
+| Condition | Meaning |
+|---|---|
+| more failures than allowed | a regression |
+| **fewer** failures than allowed | a defect was fixed; this file must be updated in the same change, so a fix cannot land claiming more or less than it delivered |
+| **wrong check count** | the vector file was truncated, corrupted or lost |
+
+That last one matters more than it looks. Without it, emptying a vector file
+makes its checks disappear from the report entirely and the suite passes — the
+corpus can evaporate while CI stays green.
 
 ## Running
 
 ```sh
-make check                      # both suites, via automake
+make check                      # all three suites, via automake
 ./test_vectors vectors          # vectors only, from the test/ directory
-../test/baseline.sh check       # regression baseline
-../test/baseline.sh record      # regenerate it — deliberately, see below
+./test_profiles                 # regression baseline
+./test_profiles --record        # regenerate it — deliberately, see below
 ```
 
 ## Regenerating
@@ -71,10 +92,22 @@ python3 gen_vectors.py
 
 The generator must never import, link against, or shell out to `libbuhlmann`.
 If it ever does, the vectors stop being independent and this whole directory
-becomes decoration. It parses the constant tables out of `src/*.c` — that is
-intentional, so a table edit is reflected, but note it means the tables
-themselves are checked only against the derivation formula, not against the
-generator.
+becomes decoration.
+
+**It parses the constant tables out of `src/*.c`**, so a table edit flows
+through — but that also means a *corrupted* constant would be silently baked
+into the expected values, and regenerating would make the corruption pass.
+Two things guard against it:
+
+- `gen_vectors.py` holds a retyped `PUBLISHED_ZH_L16C` and reports how many
+  cells the parsed source differs from it. That reference is independent of
+  `src/`.
+- `test_profiles` replays whole dive profiles and would fail on any changed
+  constant regardless of regeneration.
+
+Neither covers `zh_l12` or `zh_l16B`, which have no independent reference here.
+For those, `test_profiles` is the only net — so **never regenerate vectors as a
+way of making a red build green.**
 
 Baseline: only alongside an approved change that legitimately moves the output,
 in the same commit. Never to turn a red build green.
