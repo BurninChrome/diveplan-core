@@ -1,4 +1,5 @@
-#define _GNU_SOURCE
+/* _GNU_SOURCE (needed for getline() and M_LN2) comes from AM_CFLAGS in
+   src/Makefile.am, the same way every other translation unit gets it. */
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -31,7 +32,6 @@ int main(void)
         double o2, he;
         double dt, dp;
         double ceiling = 0.0;
-        double stop = 0.0;
         double nodectime = 100.0;
 
         if (!l) {
@@ -77,10 +77,10 @@ int main(void)
         else
             printf("\n");*/
 
-        /*if (stop > 0.0)
-            printf(" Stop recommanded at  : %lf m\n", (stop - 1) * 10 );
-        else
-            printf("\n");*/
+        /* Stop scheduling was never implemented here; the `stop` variable this
+           block referenced was unused. Specification, and the reasons it is a
+           planner concern rather than a library one:
+           .okf/domain/ascent-and-stop-scheduling.md */
         fprintf(stdout, " %lf %lf\n", ceiling, nodectime);
 
 

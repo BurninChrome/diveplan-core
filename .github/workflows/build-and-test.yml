@@ -31,8 +31,10 @@ jobs:
       - name: Configure
         run: ./configure
 
-      - name: Build
-        run: make
+      # -Werror in CI only, not in configure.ac: a warning must never stop a
+      # user from building the library, but it must stop it from landing here.
+      - name: Build with warnings as errors
+        run: make CFLAGS="-O2 -Werror"
 
       # The C unit tests have never run in CI before this workflow existed:
       # .travis.yml only ever invoked the Python test. See
