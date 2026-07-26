@@ -33,6 +33,14 @@
   `expected-failures.txt` now carries a required check count per file, and a
   listed file producing nothing is reported MISSING. Unparseable lines are a
   hard error.
+  **This was initially only half done, and the log said otherwise.** A third
+  review found the profile suite still exited 0 after deleting all 43 profiles
+  — the exact symptom the previous entry claimed to have fixed — and that
+  `gradient-tolerance.tsv` could lose 83% of its rows unnoticed, because
+  skipped rows were printed but never counted against anything. Both now
+  enforced: every baseline row must be consumed, and skip counts are part of
+  the contract. CI additionally re-runs `gen_vectors.py` and diffs, which
+  closes substituted-row edits that keep the counts intact.
   **(3) The NDL allowance blamed the wrong defect.** The 6 trimix rows deviate
   by **7–21×**, not the 1.5–1.7× stated, and the dominant cause is the ceiling
   rule propagating through `nodecotime`, not `nodecotime` itself. Split into

@@ -264,7 +264,7 @@ static void check_zh_l16c_published(void)
 
 /* ------------------------------------------------------- expected failures */
 
-struct allowance { char file[64]; int expect_checks, allowed; char reason[160]; };
+struct allowance { char file[64]; int expect_checks, expect_skips, allowed; char reason[160]; };
 static struct allowance allowances[MAXFILES];
 static int nallowances;
 
@@ -283,8 +283,9 @@ static void load_allowances(void)
             exit(2);
         }
         a = &allowances[nallowances];
-        if (sscanf(line, "%63s %d %d %159[^\n]",
-                   a->file, &a->expect_checks, &a->allowed, a->reason) == 4)
+        if (sscanf(line, "%63s %d %d %d %159[^\n]",
+                   a->file, &a->expect_checks, &a->expect_skips,
+                   &a->allowed, a->reason) == 5)
             nallowances++;
         else
             fprintf(stderr, "  malformed allowance line: %.60s", line);
@@ -342,6 +343,11 @@ int main(int argc, char **argv)
             verdict = "NO ALLOWANCE ENTRY"; status = 1;
         } else if (results[i].checked != expect) {
             verdict = "WRONG CHECK COUNT - data missing or changed"; status = 1;
+        } else if (a && results[i].skipped != a->expect_skips) {
+            /* Skipped rows are unreachable, not wrong — but they are still
+               data, and 83% of gradient-tolerance.tsv is skipped. Without this
+               those rows could be deleted with no signal. */
+            verdict = "WRONG SKIP COUNT - data missing or changed"; status = 1;
         } else if (results[i].failed == allowed) {
             verdict = allowed ? "known deviation" : "ok";
         } else if (results[i].failed > allowed) {
@@ -351,9 +357,9 @@ int main(int argc, char **argv)
         }
         printf("%-26s %8d %8d %8d %8d   %s\n", results[i].file,
                results[i].checked, expect, results[i].failed, allowed, verdict);
-        if (results[i].skipped)
-            printf("%-26s %8s %8d rows unreachable (no library entry point)\n",
-                   "", "skipped:", results[i].skipped);
+        if (results[i].skipped || (a && a->expect_skips))
+            printf("%-26s %8s %8d of %d rows unreachable (no library entry point)\n",
+                   "", "skipped:", results[i].skipped, a ? a->expect_skips : 0);
         if (a && a->reason[0] && results[i].failed)
             printf("%-26s %26s   %s\n", "", "", a->reason);
     }

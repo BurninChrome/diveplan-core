@@ -207,7 +207,11 @@ int main(int argc, char **argv)
         int nsteps;
         snprintf(path, sizeof path, "%s/%s", profile_dir, names[i]);
         nsteps = load_profile(path, samples, MAXSTEPS);
-        if (nsteps <= 0) continue;
+        if (nsteps <= 0) {
+            fprintf(stderr, "  %s: no samples\n", path);
+            failures++;
+            continue;
+        }
 
         for (k = 0; k < 2; k++) {
             struct summary s = replay(tables[k].t, tables[k].n, samples, nsteps);
@@ -256,6 +260,27 @@ int main(int argc, char **argv)
                     failures++;
                 }
             }
+        }
+    }
+
+    /* The loop above walks what is on disk and checks each file has a baseline
+       row. The reverse must also hold: a baseline row with no file on disk means
+       the corpus lost a profile. Without this, deleting every profile reports
+       "0 comparisons, unchanged" and exits 0 — which is exactly what happened
+       before this check existed. */
+    if (!record) {
+        FILE *ef = fopen(expected_path, "r");
+        char line[1024];
+        int rows = 0;
+        if (!ef) { fprintf(stderr, "cannot read %s\n", expected_path); return 2; }
+        while (fgets(line, sizeof line, ef))
+            if (line[0] != '#' && line[0] != '\n') rows++;
+        fclose(ef);
+        if (checked != rows) {
+            fprintf(stderr, "\n  baseline has %d rows but only %d were checked:"
+                            " %d profile/table pair(s) missing from disk\n",
+                    rows, checked, rows - checked);
+            failures += (rows - checked > 0) ? rows - checked : 1;
         }
     }
 

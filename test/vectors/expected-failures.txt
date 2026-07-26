@@ -1,6 +1,6 @@
 # Known deviations from the conformance vectors.
 #
-# Format:  <vector file>  <expected checks>  <allowed failures>  <reason>
+# Format:  <vector file>  <expected checks>  <expected skips>  <allowed failures>  <reason>
 #
 # The vectors say how the model SHOULD behave. Each line records a place where
 # this library currently does not, so CI stays green on known defects and fails
@@ -15,24 +15,28 @@
 #   wrong check count            the vector file was truncated, corrupted or
 #                                lost. Without this a deleted corpus reports
 #                                success.
+#   wrong skip count             same, for rows that are currently unreachable.
+#                                83% of gradient-tolerance.tsv is skipped, so
+#                                without this it could lose most of its content
+#                                unnoticed.
 #
 # A file listed here that produces no checks at all is reported MISSING.
 # A file that produces checks but is not listed here fails too.
 
-alveolar.tsv             90    0   -
+alveolar.tsv              90    0    0   -
 
-haldane.tsv              72    0   -
+haldane.tsv               72    0    0   -
 
-schreiner.tsv            80    0   -
+schreiner.tsv             80    0    0   -
 
-ceiling.tsv              48   24   getCeiling() evaluates each gas independently and takes the max, instead of blending a/b by partial-pressure share. All 24 mixed-gas vectors deviate; all 24 single-gas vectors pass. See .okf/findings/ceiling-vs-mvalue-divergence.md
+ceiling.tsv               48    0   24   getCeiling() evaluates each gas independently and takes the max, instead of blending a/b by partial-pressure share. All 24 mixed-gas vectors deviate; all 24 single-gas vectors pass. See .okf/findings/ceiling-vs-mvalue-divergence.md
 
-gradient-tolerance.tsv   18    0   Only the 18 gf=1.0 rows are checkable - they reduce to the raw ceiling and pass. The other 90 rows are reported as SKIPPED, not failed: there is no GF-aware entry point to call, so they are unreachable rather than wrong. Adding tolerated_pressure() makes them checkable. See .okf/domain/ascent-and-stop-scheduling.md
+gradient-tolerance.tsv    18   90    0   Only the 18 gf=1.0 rows are checkable - they reduce to the raw ceiling and pass. The other 90 rows are reported as SKIPPED, not failed: there is no GF-aware entry point to call, so they are unreachable rather than wrong. Adding tolerated_pressure() makes them checkable. See .okf/domain/ascent-and-stop-scheduling.md
 
-ndl-air.tsv              12   10   nodecotime() over-reports by 1.5-1.7x: it returns the next untested search candidate rather than the validated one, and accepts a 1 m ceiling as no-deco. The 2 passing rows are the capped 100-minute cases at 10 m. See .okf/findings/nodecotime-overestimates-ndl.md
+ndl-air.tsv               12    0   10   nodecotime() over-reports by 1.5-1.7x: it returns the next untested search candidate rather than the validated one, and accepts a 1 m ceiling as no-deco. The 2 passing rows are the capped 100-minute cases at 10 m. See .okf/findings/nodecotime-overestimates-ndl.md
 
-ndl-trimix.tsv            6    6   Two defects compounding, and the ceiling one dominates: the combined-gas ceiling rule (ceiling.tsv above) propagates through nodecotime, then nodecotime's own 1.5x is applied on top. Measured over-report is 7x-21x, NOT the 1.5-1.7x of the air case - at 7 bar on 21/35 the library reports 28 min of no-deco time against a reference of 1.9 min. Fixing nodecotime alone will not clear these 6 rows.
+ndl-trimix.tsv             6    0    6   Two defects compounding, and the ceiling one dominates: the combined-gas ceiling rule (ceiling.tsv above) propagates through nodecotime, then nodecotime's own 1.5x is applied on top. Measured over-report is 7x-21x, NOT the 1.5-1.7x of the air case - at 7 bar on 21/35 the library reports 28 min of no-deco time against a reference of 1.9 min. Fixing nodecotime alone will not clear these 6 rows.
 
-zh-l16a-derivation.tsv   47    5   ZH-L16A is BY DEFINITION a = 2/cbrt(t), so this checks the variant against its own definition. 4 deviations in `a` (t=38.3, 54.3, 77.0, 305.0) are Finding 2: zh_l16A carries what look like ZH-L16B values. 1 deviation in `b` (t=4.0, 0.5240 against 0.5050) is unsourced. The t=18.5 b value is excluded - it deviates in the published table itself. See .okf/findings/zh-l16-a-coefficients-nonstandard.md
+zh-l16a-derivation.tsv    47    0    5   ZH-L16A is BY DEFINITION a = 2/cbrt(t), so this checks the variant against its own definition. 4 deviations in `a` (t=38.3, 54.3, 77.0, 305.0) are Finding 2: zh_l16A carries what look like ZH-L16B values. 1 deviation in `b` (t=4.0, 0.5240 against 0.5050) is unsourced. The t=18.5 b value is excluded - it deviates in the published table itself. See .okf/findings/zh-l16-a-coefficients-nonstandard.md
 
-zh-l16c-published.tsv   102   12   zh_l16C against the retyped published table, NOT against the A-derivation formula: checking C against A's formula would demand values up to 0.089 bar LESS conservative than published. 11 deviations in nitrogen `a` (t=27.0 through 498.0) plus 1 in `b` (t=4.0). All helium columns and all half-times pass. See .okf/findings/zh-l16-a-coefficients-nonstandard.md
+zh-l16c-published.tsv    102    0   12   zh_l16C against the retyped published table, NOT against the A-derivation formula: checking C against A's formula would demand values up to 0.089 bar LESS conservative than published. 11 deviations in nitrogen `a` (t=27.0 through 498.0) plus 1 in `b` (t=4.0). All helium columns and all half-times pass. See .okf/findings/zh-l16-a-coefficients-nonstandard.md

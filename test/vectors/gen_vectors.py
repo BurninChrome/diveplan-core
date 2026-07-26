@@ -25,11 +25,27 @@ WATER_VAPOUR = 0.0627   # bar, saturated at 37 C (47 mmHg)
 CO2 = 0.0534            # bar, alveolar (40 mmHg)
 AIR_N2 = 0.78084        # dry atmospheric nitrogen fraction
 
-# Published ZH-L16C, bar/minute units, 17 compartments (1, 1b, 2..16).
+# Published ZH-L16C, bar/minute units.
 # RETYPED from the reference table, deliberately not derived: a formula can
 # only reproduce variant A, and checking C against A's formula would demand
-# less conservative values than published. Verified cell-for-cell against the
-# Wikipedia ZH-L16C parameter table.
+# less conservative values than published.
+#
+# PROVENANCE, which differs by row and matters:
+#   rows 1-16 (t = 5.0 .. 635.0)  verified cell-for-cell, all six columns,
+#                                 against the published ZH-L16C parameter table
+#                                 (bar/minute), which has 16 compartments and
+#                                 starts at 5.0 min.
+#   row 0     (t = 4.0)           NOT in that table. The published 16-row C
+#                                 table has no 4-minute compartment; this
+#                                 library's table has 17 rows and does. The
+#                                 values here are the formula results
+#                                 (2/cbrt(4) = 1.2599, 1.005 - 1/sqrt(4) =
+#                                 0.5050) plus the standard compartment-1
+#                                 helium pair. Treat this row as weaker
+#                                 evidence than the rest: it drives one
+#                                 deviation (b 0.5240 -> 0.5050) in the LESS
+#                                 conservative direction, and no published C
+#                                 table was found that contains it.
 #   (n2_half_time, n2_a, n2_b, he_half_time, he_a, he_b)
 PUBLISHED_ZH_L16C = [
     (  4.0, 1.2599, 0.5050,   1.51, 1.7424, 0.4245),

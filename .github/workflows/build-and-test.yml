@@ -113,6 +113,21 @@ jobs:
       - name: Install PyYAML
         run: pip install --quiet 'pyyaml>=6'
 
+      # Closes the "right count, wrong content" hole: a substituted or edited
+      # vector row keeps every count intact and would otherwise pass unseen.
+      - name: Vectors match their generator
+        run: |
+          python3 test/vectors/gen_vectors.py
+          # Scoped to *.tsv: those are what the generator produces. The
+          # generator itself, expected-failures.txt and README.md are
+          # hand-maintained and may legitimately change in the same commit.
+          git diff --exit-code -- 'test/vectors/*.tsv' || {
+            echo "test/vectors/*.tsv does not match gen_vectors.py output —"
+            echo "either a vector was hand-edited or the generator changed"
+            echo "without the vectors being regenerated."
+            exit 1
+          }
+
       # Full OKF v0.1 §9 conformance, not just a frontmatter smoke test.
       # Implemented inline rather than fetched at run time so CI has no network
       # dependency on third-party tooling.
