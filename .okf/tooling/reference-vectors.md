@@ -1,7 +1,7 @@
 ---
 type: Test Suite
 title: Reference vectors and the regression baseline
-description: Two independent safety nets — conformance vectors derived from theory that say how the model should behave, and a baseline over 39 real dives that detects any change.
+description: Two independent safety nets — conformance vectors derived from theory that say how the model should behave, and a library-level replay of 43 profiles that detects any change.
 resource: https://github.com/BurninChrome/diveplan-core/blob/main/test/vectors/README.md
 tags: [testing, vectors, regression, conformance, verification]
 timestamp: '2026-07-26T12:00:00Z'
@@ -15,8 +15,8 @@ They answer different questions and must not be merged.
 |---|---|---|
 | Question | Is the model **correct**? | Has the output **changed**? |
 | Source of truth | Published theory | Today's binary |
-| Location | `test/vectors/*.tsv` | `test/baseline.sha256` |
-| Runner | `test_vectors` (via `make check`) | `test/baseline.sh check` |
+| Location | `test/vectors/*.tsv` | `test/profiles/expected.tsv` |
+| Runner | `test_vectors` | `test_profiles` (both via `make check`) |
 | Changes when a bug is fixed | **No** — the bug was always a deviation | **Yes** — must be re-recorded |
 | Contains known defects | No | **Yes, deliberately** |
 
@@ -92,21 +92,56 @@ Current allowances map one-to-one onto findings:
 
 # Regression baseline
 
-`test/baseline.sh` runs all 39 logs in `test/xml/` through
-[`parse_dive.py`](/tooling/parse-dive.md) and `src/dive`, and stores a SHA-256
-of each dive's full 36-field output. Any drift in any compartment shows.
+`test_profiles` replays 43 profiles — the 39 real dive logs plus four synthetic
+ones — **through the library directly**, and pins the resulting tissue state.
 
 ```sh
-./test/baseline.sh check     # CI runs this
-./test/baseline.sh record    # deliberate, alongside an approved change
+./test_profiles              # CI runs this via make check
+./test_profiles --record     # deliberate, alongside an approved change
 ```
 
-It finally puts the corpus to work — 39 real profiles with genuine ascent rates
-and multi-level structure that `gen_dive.py`'s square profiles cannot produce,
-[previously unused by any test](/tooling/test-suite.md).
+Per profile and per table it records the maximum ceiling, the minimum NDL, the
+final N₂ and He in the fastest, middle and slowest compartments, and the sum
+across all of them. The named compartments localise a failure; the sums catch
+drift anywhere. 946 comparisons in total, sensitive to 1e-9.
+
+**Every profile runs against both `zh_l12` and `zh_l16C`**, so the table the
+demo never loads is covered too.
+
+## Why not a shell script over `src/dive`
+
+The first version of this did exactly that — `parse_dive.py | src/dive`, hashing
+the 36-field output. It was replaced because for a *library* it tests the wrong
+thing:
+
+- **Poor localisation.** A changed hash could mean the library, `dive.c`'s loop,
+  the output format or the XML parser. Three layers, no signal about which.
+- **Narrow coverage.** All 39 logs are 21/0 single-mix, and the demo hard-wires
+  `zh_l12`. So it could not see ZH-L16C, the helium path, gas switches,
+  `compartment_mvalue()`, gradient factors or OTU — most of the library,
+  including the code behind four of the five high-severity findings.
+- **Redundant where it did work.** The functions it did exercise are already
+  covered directly, and better, by the vectors above.
+
+The corpus was the asset; the harness was the mistake. `test/profiles/*.txt`
+holds the same profiles as plain `(time, pressure, fO2, fHe)` data, so
+[`parse_dive.py`](/tooling/parse-dive.md) is a one-off converter rather than a
+test dependency.
+
+## Filling the corpus gaps
+
+All 39 real logs are air, single-mix, 12–50 m. Four synthetic profiles cover
+what they cannot:
+
+| Profile | Covers |
+|---|---|
+| `synth-trimix-21-35.txt` | helium loading, 60 m |
+| `synth-gas-switch.txt` | air → nitrox 50 → pure O₂ mid-profile |
+| `synth-heliox.txt` | heliox 16/84, helium-dominant, 80 m |
+| `synth-saturation.txt` | 6 h at 15 m, slow compartments near saturation |
 
 **Never re-record to turn a red build green.** A diff means either an intended
-model change, in which case the baseline belongs in the same commit, or a
+model change, in which case the new baseline belongs in the same commit, or a
 regression.
 
 # Limitations
@@ -117,11 +152,6 @@ edit is picked up — but the values are validated against `a = 2/∛t½`, not
 against a published table held independently. This is why
 [`zh_l12` remains unverified](/findings/zh-l12-unverified.md): it has no
 derivation formula, so there is nothing to check it against.
-
-**The baseline pins the demo, not the library.** It exercises
-[`src/dive`](/components/dive-cli.md), which is a
-[demonstration harness](/getting-started.md). A library-level change invisible
-through that pipeline — a new primitive, a signature change — will not show up.
 
 **NDL tolerance is 0.5 minutes**, coarser than the model's precision. The search
 is iterative and its granularity is not a property worth pinning.
