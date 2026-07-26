@@ -1,0 +1,174 @@
+name: build-and-test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  c:
+    name: C library and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install autotools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential autoconf automake libtool
+
+      - name: Bootstrap
+        run: ./bootstrap.sh
+
+      - name: Configure
+        run: ./configure
+
+      # -Werror in CI only, not in configure.ac: a warning must never stop a
+      # user from building the library, but it must stop it from landing here.
+      - name: Build with warnings as errors
+        run: make CFLAGS="-O2 -Werror"
+
+      # The C unit tests have never run in CI before this workflow existed:
+      # .travis.yml only ever invoked the Python test. See
+      # .okf/findings/ci-never-runs-c-tests.md
+      - name: Run unit tests
+        run: make check
+
+      - name: Show test log on failure
+        if: failure()
+        run: |
+          for f in test/test-suite.log test/test_buhlmann.log; do
+            [ -f "$f" ] && { echo "===== $f"; cat "$f"; }
+          done
+          exit 0
+
+      - name: Smoke-test the dive binary end to end
+        run: |
+          python3 test/gen_dive.py -d 20 -t 5 | src/dive > /tmp/out.txt
+          lines=$(wc -l < /tmp/out.txt)
+          fields=$(head -1 /tmp/out.txt | wc -w)
+          echo "produced $lines lines, $fields fields per line"
+          test "$lines" -gt 0      || { echo "no output produced"; exit 1; }
+          test "$fields" -eq 36    || { echo "expected 36 fields, got $fields"; exit 1; }
+          grep -qi 'nan\|inf' /tmp/out.txt && { echo "NaN or Inf in output"; exit 1; }
+          echo "ok"
+
+  python:
+    name: Python tooling
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run Python unit tests
+        working-directory: test
+        run: python3 -m unittest discover -v
+
+      - name: Check the profile generators run
+        run: |
+          python3 test/gen_dive.py -d 30 -t 20 > /dev/null
+          for f in test/xml/*.xml; do
+            python3 test/parse_dive.py -f "$f" > /dev/null || { echo "failed: $f"; exit 1; }
+          done
+          echo "gen_dive and parse_dive ok across $(ls test/xml/*.xml | wc -l) logs"
+
+  okf:
+    name: OKF bundle conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PyYAML
+        run: pip install --quiet 'pyyaml>=6'
+
+      # Full OKF v0.1 §9 conformance, not just a frontmatter smoke test.
+      # Implemented inline rather than fetched at run time so CI has no network
+      # dependency on third-party tooling.
+      - name: Validate the bundle against OKF v0.1
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys, yaml
+
+          root = pathlib.Path('.okf')
+          errors, concepts, indexes, logs = [], 0, 0, 0
+
+          for f in sorted(root.rglob('*.md')):
+              rel = f.relative_to(root)
+              text = f.read_text(encoding='utf-8')
+
+              # §6 — index.md carries no frontmatter, except the bundle-root
+              # index which may declare okf_version and nothing else.
+              if f.name == 'index.md':
+                  indexes += 1
+                  if text.startswith('---'):
+                      if f.parent != root:
+                          errors.append(f'{rel}: §6 non-root index.md must not have frontmatter')
+                      else:
+                          fm = yaml.safe_load(text.split('---')[1]) or {}
+                          extra = set(fm) - {'okf_version'}
+                          if extra:
+                              errors.append(f'{rel}: §11 root index may only carry okf_version, found {sorted(extra)}')
+                  continue
+
+              # §7 — log.md date headings must be ISO YYYY-MM-DD.
+              if f.name == 'log.md':
+                  logs += 1
+                  for h in re.findall(r'^##\s+(.+)$', text, re.M):
+                      if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', h.strip()):
+                          errors.append(f'{rel}: §7 date heading not ISO 8601: {h.strip()!r}')
+                  continue
+
+              # §9.1 / §9.2 — parseable frontmatter with a non-empty `type`.
+              concepts += 1
+              if not text.startswith('---'):
+                  errors.append(f'{rel}: §9.1 missing frontmatter'); continue
+              try:
+                  fm = yaml.safe_load(text.split('---')[1])
+              except Exception as e:
+                  errors.append(f'{rel}: §9.1 unparseable YAML: {e}'); continue
+              if not (fm or {}).get('type'):
+                  errors.append(f'{rel}: §9.2 missing or empty `type`')
+
+          for e in errors:
+              print('ERROR', e)
+          print(f'concepts: {concepts}   index.md: {indexes}   log.md: {logs}')
+          print('non-conformant' if errors else 'conformant')
+          sys.exit(1 if errors else 0)
+          PY
+
+      # Cross-links are bundle-relative (OKF §5.1), so they resolve against
+      # .okf/ rather than the repo root. Verify they actually point somewhere.
+      - name: Check cross-links resolve
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys
+          root = pathlib.Path('.okf')
+          broken = []
+          for f in root.rglob('*.md'):
+              for _, target in re.findall(r'\[([^\]]*)\]\(([^)]+)\)', f.read_text(encoding='utf-8')):
+                  if target.startswith(('http://', 'https://', '#')):
+                      continue
+                  t = target.split('#')[0]
+                  p = (root / t.lstrip('/')) if t.startswith('/') else (f.parent / t)
+                  if not p.exists():
+                      broken.append(f'{f.relative_to(root)} -> {target}')
+          for b in broken:
+              print('BROKEN LINK', b)
+          print(f'{len(broken)} broken links')
+          sys.exit(1 if broken else 0)
+          PY

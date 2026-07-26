@@ -65,6 +65,29 @@ struct compartment_state     { double he_p, n2_p; };
 - `test/gen_dive.py` — Generates dive profiles: square profiles, custom gas mixes, deco gas switches
 - `tools/visoutput.py` — matplotlib visualization: depth profile with ceiling overlay, per-compartment tissue loading bars
 
+## Knowledge Bundle (`.okf/`)
+
+`.okf/` holds an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog)
+v0.1 bundle describing this project — 54 concepts covering the domain model, one
+page per source module, the C API and stdio contracts, tooling, and decisions.
+
+**Read it before working here**, starting with `.okf/getting-started.md`. In
+particular, `.okf/findings/index.md` is the register of known defects: 15 of
+them, five affecting safety output, all reported and none fixed. Do not trust
+`ceiling` or `nodectime` output without reading it.
+
+**Keep it current.** When you change code, update the affected concepts and
+append a dated entry to `.okf/log.md`. CI enforces OKF §9 conformance and
+cross-link integrity, but it cannot detect a claim that has become false — that
+is on you.
+
+Two caveats worth knowing:
+
+- Cross-links use the bundle-relative form (`/domain/x.md`) that OKF §5.1
+  recommends. They resolve from a checkout but **404 in GitHub's web UI**.
+- `doc/api.md` covers some of the same ground and has drifted before. Where the
+  two disagree, verify against the source rather than assuming either is right.
+
 ## Architecture Decision Records (ADR)
 
 Whenever a meaningful architectural or design decision is made (e.g. choosing an algorithm variant, changing data structures, adding a new module, changing the I/O format), create an ADR file in `doc/adr/`.

@@ -10,7 +10,12 @@ libbuhlmann_la_SOURCES = buhlmann.c \
 						 stop.c \
 						 otu.c \
 						 gradientfactor.c
-libbuhlmann_la_CFLAGS = -W -Wall -Wextra -O2 -std=c99 -D_GNU_SOURCE
+# Applies to every target in this directory, including the `dive` demo, which
+# previously compiled with no warning flags at all. Per-target _CFLAGS below
+# override this rather than adding to it, so the library repeats what it needs.
+AM_CFLAGS = -Wall -Wextra -std=c99 -D_GNU_SOURCE
+
+libbuhlmann_la_CFLAGS = -Wall -Wextra -O2 -std=c99 -D_GNU_SOURCE
 include_HEADERS = buhlmann.h
 noinst_PROGRAMS = dive
 dive_LDFLAGS = -static
