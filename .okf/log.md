@@ -39,6 +39,24 @@ literature and confirmed against the compiled library, all on the same day.
   Suggestive of a collapsed pair, not conclusive, since other counting
   conventions can reach twelve. Recorded in
   [the unverified-table finding](/findings/zh-l12-unverified.md).
+* **Creation**: [Ascent and decompression stop scheduling](/domain/ascent-and-stop-scheduling.md)
+  — the first **normative** concept in the bundle, and the largest gap between
+  this fork and a usable dive planner. Specifies segmentation into homogeneous
+  segments, the next-standard-stop rounding, the ascent permission test
+  (evaluated at the *destination* depth, because slow compartments keep loading
+  during ascent), the one-minute stop-duration loop, gradient-factor
+  integration including the first-stop circularity, and runtime accounting.
+  Sourced from Belin's *Éléments de calcul* §"Etablir le profil de décompression
+  avec palier" and Baker's *Deep Stops*, both already in `doc/`. The
+  GF-adjusted ceiling inversion was verified against `getCeiling()` — identical
+  at GF=1 to 4e-16.
+* **Update**: Introduced a **normative/descriptive split**. Pages typed
+  `Specification` say what a correct implementation must do; pages typed
+  `Domain Model` describe theory this fork implements; `components/` describes
+  this fork including its bugs. Prompted by the goal of reimplementing the
+  algorithms from this bundle: [`stop.c`](/components/stop.md) documents a
+  broken search in detail and now carries a warning against reimplementing from
+  it. [`domain/index.md`](/domain/index.md) explains the distinction.
 * **Correction**: *Independent merge review of PR #2.* A third agent reviewed
   the bundle for merge-readiness and found **one genuine factual error** that
   three earlier passes missed. The

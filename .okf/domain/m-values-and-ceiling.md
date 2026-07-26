@@ -96,6 +96,13 @@ Neither formulation applies conservatism. Modern practice interpolates between
 ambient pressure and the M-value line using a gradient factor. The arithmetic
 exists here but is not wired in — see [gradient factors](/domain/gradient-factors.md).
 
+# From a ceiling to a plan
+
+A ceiling is an instantaneous constraint, not a schedule. Turning the two
+into a sequence of stop depths and durations is a separate algorithm, specified
+in [ascent and stop scheduling](/domain/ascent-and-stop-scheduling.md) and not
+implemented in this fork.
+
 # Citations
 
 [1] Erik C. Baker — *Understanding M-values*. In-repo: `doc/m-values_en.pdf`.

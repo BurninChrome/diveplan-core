@@ -77,11 +77,15 @@ falls squarely under the
 report and get approval first.
 
 It also requires something the codebase does not yet have: knowledge of where
-the first stop *is*. GF-low applies at the first stop depth, which is only
-known after computing an initial ceiling. That circularity is normally resolved
-by computing the raw ceiling first, rounding it up to a stop increment
-(`STOPINC`, 0.3 bar), and using that as `first_stop_depth`. See
-[decompression stops](/components/stop.md) for why that machinery is absent.
+the first stop *is*. GF-low applies at the first stop depth, which is only known
+after computing an initial ceiling.
+
+That circularity, the GF-adjusted tolerance formula and its inversion, and the
+place both occupy in a full ascent are specified in
+[ascent and stop scheduling](/domain/ascent-and-stop-scheduling.md). In short:
+compute the first stop once using GF-low as a flat factor, fix the line through
+it, and do not recompute. See [`stop.c`](/components/stop.md) for why the
+surrounding machinery is absent here.
 
 # Citations
 

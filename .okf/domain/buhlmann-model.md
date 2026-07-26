@@ -107,6 +107,10 @@ Modern practice layers **gradient factors** on top to add conservatism; this
 repository has the arithmetic but has not wired it in. See
 [gradient factors](/domain/gradient-factors.md).
 
+Also absent: the scheduling layer that turns ceilings into a stop plan. It is
+specified in [ascent and stop scheduling](/domain/ascent-and-stop-scheduling.md),
+which is the largest single gap between this fork and a usable dive planner.
+
 # Citations
 
 [1] Bühlmann, A.A. — *Dekompression–Dekompressionskrankheit*, Springer, 1983.

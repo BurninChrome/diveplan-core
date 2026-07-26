@@ -7,6 +7,11 @@ tags: [ndl, nodecotime, safety-critical, source, layer-3]
 timestamp: '2026-07-25T09:30:00Z'
 ---
 
+> **Descriptive, not normative.** This page documents what `stop.c` does,
+> including behaviour that is wrong. Do not reimplement from it. The
+> specification for what stop scheduling *should* do is
+> [ascent and stop scheduling](/domain/ascent-and-stop-scheduling.md).
+
 # The filename is misleading
 
 `stop.c` contains no decompression-stop scheduling. There is no function that
