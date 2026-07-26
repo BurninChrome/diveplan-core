@@ -9,9 +9,18 @@ timestamp: '2026-07-25T09:30:00Z'
 
 # What it is
 
-`src/dive` is the only executable. It is `noinst_PROGRAMS`, so `make install`
-does not install it — it is a harness for the library, not a product. It links
-`libbuhlmann.la` statically.
+`src/dive` is the only executable, and it is **a demonstration harness, not a
+product**. `make install` ships `libbuhlmann` and `buhlmann.h`; `dive` is
+`noinst_PROGRAMS` and stays in the build tree. It links `libbuhlmann.la`
+statically.
+
+Read it as an example of how to drive the library, and as evidence of what the
+library fails to provide: **almost every rough edge below is the driver
+compensating for a missing primitive**, not a defect in the driver's own logic.
+The surface-equilibrium seed, the table selection and the `fmax`/`fmin`
+aggregation are all things a library user should be able to call, and all three
+are hand-rolled here. See
+[the scope boundary](/domain/ascent-and-stop-scheduling.md#scope-what-belongs-in-the-library).
 
 No arguments, no options, no configuration. Everything is compiled in.
 

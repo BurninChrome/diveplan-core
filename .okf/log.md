@@ -39,6 +39,21 @@ literature and confirmed against the compiled library, all on the same day.
   Suggestive of a collapsed pair, not conclusive, since other counting
   conventions can reach twelve. Recorded in
   [the unverified-table finding](/findings/zh-l12-unverified.md).
+* **Update**: *Scope clarified — this is a library.* `libbuhlmann` implements
+  the Bühlmann model and gradient factors; the dive planner is a separate
+  project and `src/dive` is a demonstration harness, not a deliverable. Recast
+  [getting started](/getting-started.md), [`dive.c`](/components/dive-cli.md)
+  and the ascent specification accordingly, and added an explicit
+  [library/planner boundary](/domain/ascent-and-stop-scheduling.md#scope-what-belongs-in-the-library):
+  the library owns everything that is a pure function of the model, the planner
+  owns policy and iteration.
+  **This reframes several findings.** The nitrogen-fraction inconsistency, the
+  hard-wired constant table and the hand-rolled `fmax`/`fmin` aggregation are
+  filed as `dive.c` defects, but under a library reading they are **API gaps** —
+  the driver hand-rolled them because the library exposed nothing to call.
+  Fixing the demo leaves the gap open for the next consumer. The largest single
+  gap for a library with GF in its remit: **there is no GF-adjusted ceiling at
+  all**.
 * **Creation**: [Ascent and decompression stop scheduling](/domain/ascent-and-stop-scheduling.md)
   — the first **normative** concept in the bundle, and the largest gap between
   this fork and a usable dive planner. Specifies segmentation into homogeneous

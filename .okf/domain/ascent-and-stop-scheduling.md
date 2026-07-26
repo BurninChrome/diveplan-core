@@ -7,8 +7,15 @@ timestamp: '2026-07-26T10:00:00Z'
 ---
 
 > **This page is normative.** It describes what a correct implementation must
-> do, not what this repository does. **This fork implements none of it** — see
-> [what is missing here](#what-this-fork-has-and-lacks) at the end.
+> do, not what this repository does.
+>
+> **Most of it is out of scope for this repository.** `libbuhlmann` is a
+> library: its job is the Bühlmann model and gradient factors. The dive planner
+> that *uses* the schedule is a separate project, and `src/dive` here is a
+> demonstration harness, not a product. This page is specified in full anyway,
+> because the library has to expose the right primitives for a planner to be
+> writable against it — see
+> [the scope boundary](#scope-what-belongs-in-the-library) below.
 >
 > Contrast with [`stop.c`](/components/stop.md), which is *descriptive*: it
 > documents a function that exists and is wrong. Do not reimplement from that
@@ -256,28 +263,83 @@ and still exceed CNS or [OTU](/domain/oxygen-toxicity.md) limits, especially wit
 high-O₂ deco mixes. Track it in parallel; it does not fall out of the inert gas
 calculation.
 
-# What this fork has and lacks
+# Scope: what belongs in the library
 
-| Piece | Status here |
+`libbuhlmann` implements the Bühlmann model and gradient factors. The planner
+that drives an ascent is a separate project. The line between them is not
+arbitrary — it follows a clean seam:
+
+> **The library owns everything that is a pure function of the model.
+> The planner owns policy and iteration.**
+
+| Concern | Owner | Why |
+|---|---|---|
+| Gas loading over a segment | **library** | pure model |
+| Alveolar pressure | **library** | pure model |
+| Tissue constants | **library** | model data |
+| M-value / raw ceiling | **library** | pure model |
+| **GF-adjusted tolerated pressure** | **library** | pure model — GF is in scope by definition |
+| **Ascent permission test** at a given depth | **library** | a predicate over model state; no policy in it |
+| NDL at the current depth | **library** | inversion of the model |
+| OTU accumulation | **library** | pure model |
+| Stop increment (3 m vs 10 fsw) | planner | convention |
+| Next-stop rounding | planner | policy |
+| One-minute stop granularity | planner | convention |
+| GF-low / GF-high *values* | planner | user conservatism setting |
+| Where the GF line is anchored | planner | depends on the first stop, which is a schedule property |
+| Runtime accounting convention | planner | presentation |
+| Gas switch selection | planner | plan input |
+| The ascent loop itself | planner | iteration |
+
+Steps 1–6 above are therefore mostly planner work. They are specified here so
+that whoever writes the planner has one document to work from, and so that the
+library can be judged on whether it exposes what that planner needs.
+
+## What the library must expose, and does not
+
+Measured against the loop above, `libbuhlmann` is missing the primitives a
+planner would call — and every gap below currently shows up as hand-rolled code
+in [`dive.c`](/components/dive-cli.md), which is exactly the smell:
+
+| Needed primitive | Status | Consequence today |
+|---|---|---|
+| `tolerated_pressure(constants, state, gf)` | ❌ absent | `getCeiling()` is raw Bühlmann only; GF cannot be applied at all |
+| `can_ascend_to(constants[], state[], depth, gf)` | ❌ absent | planner must loop compartments itself |
+| Aggregate ceiling / NDL over a compartment set | ❌ absent | `dive.c` hand-rolls `fmax`/`fmin` inline |
+| Initialise a state array to surface equilibrium | ❌ absent | `dive.c` hand-rolls it, and [gets the gas fraction inconsistent](/findings/nitrogen-fraction-inconsistency.md) |
+| Select a constant table at runtime | ❌ absent | `zh_l12` is [named directly in the driver](/findings/dive-uses-zh-l12-not-zh-l16c.md) |
+| A handle representing "a dive in progress" | ❌ absent | no way to embed the model without copying the loop — see [architecture](/components/architecture.md) |
+
+The pattern is consistent: **anything a caller needs, `dive.c` implements
+privately.** That is tolerable in a demo and disqualifying in a library, because
+the second consumer has to write it again — and the demo has already got two of
+them wrong.
+
+Note what this reframes. Several entries in
+[the findings register](/findings/index.md) are filed as defects in `dive.c`,
+but under a library reading they are **API gaps wearing a bug's clothing**: the
+nitrogen-fraction inconsistency, the hard-wired table, and the hand-rolled
+aggregation all exist because the library gave the driver nothing to call.
+Fixing the demo leaves the gap; adding the primitive closes both.
+
+## What is genuinely in scope and missing
+
+Narrowing to library work only:
+
+| Piece | Status |
 |---|---|
-| Gas loading (Haldane, Schreiner) | ✅ correct, [validated to 6e-14](/decisions/2026-07-25-model-validation.md) |
-| Per-compartment ceiling | ⚠️ present, but [uses a non-standard combined-gas rule](/findings/ceiling-vs-mvalue-divergence.md) |
+| Gas loading (Haldane, Schreiner) | ✅ [validated to 6e-14](/decisions/2026-07-25-model-validation.md) |
+| Per-compartment raw ceiling | ⚠️ [non-standard combined-gas rule](/findings/ceiling-vs-mvalue-divergence.md) |
 | GF line arithmetic | ⚠️ [implemented, never called](/components/gradientfactor.md) |
-| GF-adjusted ceiling | ❌ absent — `getCeiling()` is raw Bühlmann |
-| Next-stop rounding | ❌ absent — `STOPINC` is defined and [never used](/interfaces/c-api.md) |
-| Ascent permission test | ❌ absent |
-| Stop duration loop | ❌ absent |
-| Runtime accounting | ❌ absent |
-| Segment splitting at gas switches | ❌ absent — [`dive.c`](/components/dive-cli.md) integrates whatever the input line implies |
+| GF-adjusted ceiling | ❌ the central gap for a GF library |
+| Ascent permission predicate | ❌ absent |
+| NDL | ⚠️ present but [1.5–1.7× wrong](/findings/nodecotime-overestimates-ndl.md) |
+| Public API for state setup and aggregation | ❌ absent |
 
-So roughly the bottom third of the algorithm exists and the scheduling layer
-does not. `stop.c` is named as though it were the scheduler and
-[contains only an NDL search](/components/stop.md).
-
-Implementing this means adding a new module, not modifying an existing one — the
-existing equations are sound and are the right foundation. It falls under the
-[algorithm integrity policy](/decisions/algorithm-integrity-policy.md) and wants
-[reference test vectors](/playbooks/add-a-constant-table.md) before, not after.
+The equations are sound and are the right foundation; this is additive work, not
+a rewrite. It falls under the
+[algorithm integrity policy](/decisions/algorithm-integrity-policy.md), and the
+new surface wants reference test vectors before it is written, not after.
 
 # Citations
 
