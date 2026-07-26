@@ -45,10 +45,17 @@ jobs:
       - name: Show test log on failure
         if: failure()
         run: |
-          for f in test/test-suite.log test/test_buhlmann.log; do
+          for f in test/test-suite.log test/test_buhlmann.log test/test_vectors.log; do
             [ -f "$f" ] && { echo "===== $f"; cat "$f"; }
           done
           exit 0
+
+      # Detects any change in model output across the 39 real dive logs.
+      # A diff here is either an intended, approved model change — in which case
+      # the baseline should have been re-recorded in the same commit — or a
+      # regression. See test/vectors/README.md.
+      - name: Regression baseline over the real dive logs
+        run: ./test/baseline.sh check
 
       - name: Smoke-test the dive binary end to end
         run: |

@@ -1,6 +1,7 @@
 # Tooling — build, generate, visualise, test
 
 * [Build system — autotools](build-system.md) - bootstrap, configure, make; the compiler-flag asymmetry, and dead Travis CI.
+* [Reference vectors and the regression baseline](reference-vectors.md) - two safety nets: 465 conformance vectors derived from theory, and a change-detector over the 39 real dives. **Start here** — the older suite checks the library against itself.
 * [Test suite — coverage and gaps](test-suite.md) - what the 202 C runtime checks verify, and the three structural gaps that let the known defects survive.
 
 # Profile producers

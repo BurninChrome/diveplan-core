@@ -1,0 +1,22 @@
+# Known deviations from the conformance vectors.
+#
+# Format:  <vector file>  <allowed failures>  <reason>
+#
+# The vectors say how the model SHOULD behave. Each line here records a place
+# where this library currently does not, so CI stays green on known defects
+# while still failing on new ones.
+#
+# The runner treats FEWER failures than allowed as an error too: if a defect is
+# fixed, this file must be updated in the same change. That is deliberate — it
+# is how a fix proves it did what it claimed.
+#
+# Fixing a finding means decreasing a number here, usually to zero, and then
+# deleting the line.
+
+ceiling.tsv             24   getCeiling() evaluates each gas independently instead of blending a/b by partial-pressure share. All 24 mixed-gas vectors deviate; single-gas vectors pass. See .okf/findings/ceiling-vs-mvalue-divergence.md
+
+gradient-tolerance.tsv  90   No GF-aware entry point exists. Only the 18 gf=1.0 vectors can be checked at all (they reduce to the raw ceiling and pass); the other 90 are unreachable until the library grows a tolerated_pressure() primitive. See .okf/domain/ascent-and-stop-scheduling.md
+
+ndl.tsv                 16   nodecotime() over-reports by 1.5-1.7x: it returns the next untested search candidate rather than the validated one, and accepts a 1 m ceiling as no-deco. The 2 passing vectors are the capped 100-minute cases. See .okf/findings/nodecotime-overestimates-ndl.md
+
+zh-l16-derivation.tsv   11   ZH-L16C nitrogen 'a' differs from Buhlmann's derivation in compartments 5-15 (10 rows), and compartment 1's b is 0.5240 where the formula gives 0.5050. See .okf/findings/zh-l16-a-coefficients-nonstandard.md
