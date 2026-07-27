@@ -42,14 +42,30 @@ behaved as designed:
   whatever constants exist, while the constants themselves are checked against
   an independent transcription. Worth remembering for the next table change.
 
-# The one left behind
+# The `b` value, and a lesson about evidence
 
-`zh_l16C[0].n2_b = 0.5240` against a derived 0.5050. Not changed: the published
-C table has 16 compartments starting at 5.0 min and contains no 4-minute
-compartment, so nothing states this value. 0.5050 follows from variants
-differing only in `a`, but that is inference, and the change would move the
-ceiling **less** conservative. Since the defect just fixed was itself an
-unsourced value in the unsafe direction, this one waits for a source.
+`b` for the 4-minute compartment was 0.5240 — matching neither the derivation
+(0.5050) nor any published table. Initially held back: the published C table
+starts at 5.0 min and has no 4-minute compartment, so nothing states the value,
+and correcting it moves the ceiling *less* conservative.
+
+That was over-cautious. Unlike `a`, **`b` is never hand-modified between
+variants**, and `b = 1.005 − 1/√t½` reproduces the published table to four
+decimals in **15 of 17** compartments, with one rounding-level case and one
+documented departure at t = 18.5. A relation validated on 16 of 17 cells is not
+weak inference. 0.5240 corresponds to nothing at all.
+
+Corrected in all three tables. ZH-L16C now matches the published reference in
+**102 of 102 cells**.
+
+# What the old test suite revealed
+
+`test_buhlmann.c` asserted `zh_l16C[0].n2_b == 0.5240`. **The suite was pinning
+the defect** — 202 assertions passed while the constant was wrong, because one
+of them required it to be wrong. That is the sharpest possible argument for
+[the conformance vectors](/tooling/reference-vectors.md): a test written from
+the implementation cannot find a wrong constant, because it was written from
+the wrong constant.
 
 # Related
 

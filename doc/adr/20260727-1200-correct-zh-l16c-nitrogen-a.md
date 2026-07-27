@@ -8,8 +8,9 @@ Replace eleven nitrogen `a` values in `zh_l16C` (`src/zh-l16.c`) with the
 published ZH-L16C values, for the compartments with half-times 27.0 through
 498.0 minutes.
 
-Deliberately **not** changed in this ADR: `zh_l16C[0].n2_b`, which is 0.5240
-where the derivation gives 0.5050. See "What is left" below.
+Also correct `n2_b` for the 4-minute compartment from 0.5240 to 0.5050, in
+**all three** tables. After this the ZH-L16C table matches the published
+reference in 102 of 102 cells.
 
 ## Context
 
@@ -70,19 +71,46 @@ transcription.
 - The library is now materially closer to being usable as ZH-L16C, which is the
   variant `CLAUDE.md` designates and the one current dive computers implement.
 
-## What is left
+## The `b` value, and why it was initially held back
 
-`zh_l16C[0].n2_b = 0.5240` still deviates; the formula gives 0.5050. It was not
-changed because **no source was found that states it**. The published ZH-L16C
-table has 16 compartments beginning at 5.0 minutes and contains no 4-minute
-compartment at all; this library's table has 17 and does.
+`b` for the 4-minute compartment was 0.5240, which matches neither the
+derivation (0.5050) nor any published table. It was initially left alone
+because the published ZH-L16C table has 16 compartments beginning at 5.0
+minutes and contains no 4-minute compartment, so no source states the value
+directly — and correcting it moves the ceiling in the *less* conservative
+direction.
 
-0.5050 is a *derivation*: variants differ only in `a`, so compartment 1 is
-identical across A/B/C, and A is defined by `b = 1.005 − 1/√t½`. That reasoning
-is sound but it is not a transcription, and the change would move the ceiling
-in the **less** conservative direction. Given that the defect being fixed here
-was itself a case of an unsourced value in the unsafe direction, this one waits
-for a source.
+That caution was excessive, on evidence gathered afterwards. Unlike `a`, the
+`b` column is **never hand-modified between variants**, and
+`b = 1.005 − 1/√t½` reproduces the published table almost perfectly:
 
-Tracked in `.okf/findings/zh-l16-a-coefficients-nonstandard.md` and in the
-allowance line for `zh-l16c-published.tsv`.
+| Outcome | Compartments |
+|---|---|
+| exact to four decimals | 15 of 17 |
+| rounding-level (Δ = 0.0001) | 1 (t = 27.0) |
+| genuine published departure | 1 (t = 18.5, 0.7825 vs 0.7725, documented) |
+
+A relation validated on 16 of 17 cells of the same table is not inference in
+any weak sense. And 0.5240 corresponds to nothing at all: no formula, no
+variant, no published figure.
+
+Applied to `zh_l16A` and `zh_l16B` as well, which carried the same value.
+Leaving one table corrected and its siblings wrong would be worse than either.
+
+## What the existing test suite revealed
+
+`test_buhlmann.c` asserted `zh_l16C[0].n2_b == 0.5240`. **The suite was pinning
+the defect**, which is a large part of why it survived — 202 assertions passed
+while the constant was wrong, because one of them required it to be wrong.
+Updated to 0.5050.
+
+That is the strongest available argument for the conformance vectors: a test
+written from the implementation cannot find a wrong constant, because it was
+written from the wrong constant.
+
+## What is left in this table
+
+`zh_l16A` still carries what appear to be ZH-L16B `a` values at four
+compartments (t = 38.3, 54.3, 77.0, 305.0), and `zh_l16B` cannot be verified at
+all. Both tracked in `.okf/findings/zh-l16-a-coefficients-nonstandard.md`;
+neither is loaded by anything.

@@ -14,6 +14,18 @@
   [`test_profiles`](/tooling/reference-vectors.md) confirmed every `zh_l12` row
   byte-identical with only four `zh_l16C` rows moving. See
   [the ADR](/decisions/2026-07-27-correct-zh-l16c-nitrogen-a.md).
+* **Fix**: Corrected `n2_b` at t=4.0 from 0.5240 to 0.5050 in **all three**
+  ZH-L16 tables. Initially held back for want of a direct source — the
+  published C table starts at 5.0 min and has no 4-minute compartment — then
+  corrected once the evidence was quantified: unlike `a`, `b` is never
+  hand-modified between variants, and `b = 1.005 − 1/√t½` reproduces the
+  published table to four decimals in **15 of 17** compartments. 0.5240 matched
+  no formula, no variant and no published figure. **ZH-L16C now matches the
+  published reference in 102 of 102 cells.**
+  This surfaced something worth recording: **`test_buhlmann.c` asserted the
+  wrong value.** 202 assertions passed while the constant was defective,
+  because one of them required it to be. The sharpest possible argument for
+  vectors derived independently of the implementation.
 * **Update**: The safety net earned its keep on first use. The ratchet fired
   (12 allowed deviations → 1, refusing to pass until the allowance was updated
   in the same change), the baseline localised the movement to the right table,
