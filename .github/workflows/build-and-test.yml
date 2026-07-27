@@ -63,6 +63,81 @@ jobs:
           grep -qi 'nan\|inf' /tmp/out.txt && { echo "NaN or Inf in output"; exit 1; }
           echo "ok"
 
+  analysis:
+    name: Static and dynamic analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install analysers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential autoconf automake libtool cppcheck
+
+      - name: Bootstrap and configure
+        run: ./bootstrap.sh && ./configure
+
+      # Library and tests analysed together. Apart from being more coverage,
+      # it removes cppcheck's `unusedFunction` false positives: several public
+      # API functions have no caller inside this repo — that is what a library
+      # looks like — but the test suites do call them.
+      - name: cppcheck
+        run: |
+          cppcheck --enable=warning,performance,portability,unusedFunction \
+                   --std=c99 --inline-suppr -I src -I . \
+                   --suppress=missingIncludeSystem --suppress=checkersReport \
+                   --error-exitcode=1 \
+                   src/*.c test/test_*.c
+
+      # Catches null derefs, leaks, use-after-free. Little to find in a library
+      # that never allocates, but it costs nothing and guards what comes next.
+      - name: gcc -fanalyzer
+        run: |
+          fail=0
+          for f in src/*.c test/test_*.c; do
+            gcc -std=c99 -D_GNU_SOURCE -fanalyzer -Wall -Wextra -Werror \
+                -I src -I . -c "$f" -o /dev/null || fail=1
+          done
+          exit $fail
+
+      # The highest-value check for numerical code. UBSan with
+      # float-divide-by-zero pinpoints the division-by-zero paths documented in
+      # .okf/findings/ at their exact source lines; ASan covers the test
+      # harnesses' own buffer handling. -fno-sanitize-recover makes any report
+      # fatal rather than a log line nobody reads.
+      - name: UBSan and ASan over the test suites
+        run: |
+          SAN="-fsanitize=undefined,address,float-divide-by-zero,float-cast-overflow"
+          SAN="$SAN -fno-sanitize-recover=all -g -O1"
+          LIB=$(ls src/*.c | grep -v dive.c)
+          for t in test_buhlmann test_vectors test_profiles; do
+            gcc -std=c99 -D_GNU_SOURCE $SAN -I src -I . -o "/tmp/$t" "test/$t.c" $LIB -lm
+            ( cd test && "/tmp/$t" ) || exit 1
+          done
+          gcc -std=c99 -D_GNU_SOURCE $SAN -I src -I . -o /tmp/san_dive src/*.c -lm
+          python3 test/gen_dive.py -d 30 -t 20 | /tmp/san_dive > /dev/null
+
+      # ADVISORY, not a gate. Seven warnings exist today, all already recorded
+      # in .okf/findings/ — missing prototypes on the OTU functions, `1.0f`
+      # literals in double expressions, and three exact float comparisons. They
+      # live in files covered by the algorithm integrity policy, so clearing
+      # them needs approval and belongs to the BARR-C / Power of Ten pass.
+      # Turn this into a gate once that pass lands.
+      - name: Strict warning set (advisory)
+        continue-on-error: true
+        run: |
+          STRICT="-Wconversion -Wsign-conversion -Wshadow -Wcast-qual"
+          STRICT="$STRICT -Wstrict-prototypes -Wmissing-prototypes -Wdouble-promotion"
+          STRICT="$STRICT -Wfloat-equal -Wpedantic -Wundef -Wwrite-strings"
+          STRICT="$STRICT -Wredundant-decls -Wswitch-default -Wbad-function-cast"
+          for f in src/*.c; do
+            gcc -std=c99 -D_GNU_SOURCE -Wall -Wextra $STRICT -I src -I . \
+                -c "$f" -o /dev/null
+          done 2>&1 | tee /tmp/strict.log
+          echo
+          echo "warnings by category:"
+          grep -oE '\[-W[a-z-]+\]' /tmp/strict.log | sort | uniq -c | sort -rn
+
   python:
     name: Python tooling
     runs-on: ubuntu-latest
