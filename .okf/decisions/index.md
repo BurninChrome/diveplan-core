@@ -14,6 +14,10 @@ standing policy and this bundle's own methodological record.
 * [2026-03-09 — Add API documentation](2026-03-09-add-api-documentation.md) - added `doc/api.md`; now partly stale, and a cautionary tale for this bundle.
 * [2026-03-10 — Fix otu_descend() NaN when ppO₂ crosses 0.5 bar](2026-03-10-fix-otu-descend-nan.md) - clamped both endpoints before exponentiation, deliberately leaving the divisor unclamped.
 
+# Fixes
+
+* [2026-07-27 — Correct the ZH-L16C nitrogen `a` coefficients](2026-07-27-correct-zh-l16c-nitrogen-a.md) - the first algorithm-level fix; eleven values replaced with published figures, ten moving the ceiling deeper. One unsourced value deliberately left.
+
 # Validation
 
 * [2026-07-25 — Model validation against the decompression literature](2026-07-25-model-validation.md) - every equation and constant checked against Bühlmann's formulas, the published ZH-L16C table, and numerical integration of the underlying ODE. The equations pass; the ZH-L16 nitrogen `a` constants do not.

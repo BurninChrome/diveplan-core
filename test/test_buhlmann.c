@@ -465,8 +465,8 @@ static void test_compartment_mvalue(void)
     struct compartment_state s;
 
     /* Pure N2 loading, ZH-L16C compartment 1 (idx 0):
-     * a = n2_a = 1.2599, b = n2_b = 0.5240
-     * mvalue = (2.0 - 1.2599) * 0.5240 = 0.7401 * 0.5240 */
+     * a = n2_a = 1.2599, b = n2_b = 0.5050
+     * mvalue = (2.0 - 1.2599) * 0.5050 = 0.7401 * 0.5050 */
     s.n2_p = 2.0;
     s.he_p = 0.0;
     double expected = (2.0 - zh_l16C[0].n2_a) * zh_l16C[0].n2_b;
@@ -559,7 +559,11 @@ static void test_zh_l16c_constants(void)
     /* Compartment 1 (idx 0): N2 half-time = 4.0 min */
     ASSERT_NEAR(4.0,    zh_l16C[0].n2_h,  EPSILON, "cpt1  N2 half-time = 4.0");
     ASSERT_NEAR(1.2599, zh_l16C[0].n2_a,  1e-4,    "cpt1  N2 a = 1.2599");
-    ASSERT_NEAR(0.5240, zh_l16C[0].n2_b,  1e-4,    "cpt1  N2 b = 0.5240");
+    /* Was pinned at 0.5240 until 2026-07-27, which is what let that defect
+       survive: the suite asserted the wrong value. 0.5050 is what the
+       derivation gives and what the published table uses. See
+       doc/adr/20260727-1200-correct-zh-l16c-nitrogen-a.md */
+    ASSERT_NEAR(0.5050, zh_l16C[0].n2_b,  1e-4,    "cpt1  N2 b = 0.5050");
     ASSERT_NEAR(1.51,   zh_l16C[0].he_h,  1e-4,    "cpt1  He half-time = 1.51");
 
     /* Compartment 1b (idx 1) is unique to ZH-L16C vs A/B */
