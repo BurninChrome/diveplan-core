@@ -1,0 +1,8 @@
+# NDL on trimix 21/35. Deviations here are dominated by the combined-gas ceiling rule propagating through nodecotime, not by nodecotime alone.
+# table	pamb	n2_ratio	he_ratio	expected_ndl_min
+zh_l12	4	0.44	0.35	10.71716253
+zh_l12	6	0.44	0.35	2.650812933
+zh_l12	7	0.44	0.35	1.901665705
+zh_l16C	4	0.44	0.35	14.01836979
+zh_l16C	6	0.44	0.35	4.673964908
+zh_l16C	7	0.44	0.35	3.283754473

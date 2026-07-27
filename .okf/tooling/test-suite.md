@@ -53,6 +53,12 @@ prioritise that variant. It checks named
 coefficients *and* invariants: monotonic half-times, He faster than N₂, all `b`
 in (0,1), `a` decreasing and `b` increasing with index.
 
+> **Gap 1 below is now closed.** `test/vectors/` holds 475 conformance checks
+> derived independently from theory, wired into `make check`, plus a regression
+> baseline over the 39 real dives. See
+> [reference vectors](/tooling/reference-vectors.md). The gaps described here
+> are what motivated them.
+
 # The three structural gaps
 
 **1. Nothing checks a value against an independent reference.**

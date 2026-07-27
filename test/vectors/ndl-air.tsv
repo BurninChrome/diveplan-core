@@ -1,0 +1,14 @@
+# NDL on air by bisection on the ceiling crossing, min over compartments, capped at 100
+# table	pamb	n2_ratio	he_ratio	expected_ndl_min
+zh_l12	2	0.78084	0	100
+zh_l12	3	0.78084	0	55.39812466
+zh_l12	4	0.78084	0	19.30411073
+zh_l12	5	0.78084	0	7.530227734
+zh_l12	6	0.78084	0	4.457852921
+zh_l12	7	0.78084	0	3.259318448
+zh_l16C	2	0.78084	0	100
+zh_l16C	3	0.78084	0	47.91157332
+zh_l16C	4	0.78084	0	16.9523611
+zh_l16C	5	0.78084	0	8.739334622
+zh_l16C	6	0.78084	0	5.645547619
+zh_l16C	7	0.78084	0	4.236074699
