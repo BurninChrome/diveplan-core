@@ -118,6 +118,10 @@ jobs:
       - name: Vectors match their generator
         run: |
           python3 test/vectors/gen_vectors.py
+          # `git add -N` first: without it a vector file deleted in the commit
+          # comes back UNTRACKED after regeneration, and `git diff` ignores
+          # untracked paths, so the step would pass on a deleted vector.
+          git add -N test/vectors/
           # Scoped to *.tsv: those are what the generator produces. The
           # generator itself, expected-failures.txt and README.md are
           # hand-maintained and may legitimately change in the same commit.

@@ -167,7 +167,13 @@ static void check_gradient_tolerance(void)
         if (sscanf(line, "%31s %d %lf %lf %lf", tname, &idx, &pt, &gf, &expected) != 5)
             { unparsed("gradient-tolerance.tsv", line); continue; }
         const struct compartment_constants *t = table_of(tname, &n);
-        if (!t || idx >= n) continue;
+        if (!t || idx >= n) {
+            /* Unreachable today (18 + 90 = 108 = every row), but a row naming
+               an unknown table or an out-of-range compartment would otherwise
+               vanish into neither checked, skipped nor unparsed. */
+            unparsed("gradient-tolerance.tsv", line);
+            continue;
+        }
         /* There is no GF-aware entry point in the library. At gf == 1 the
            tolerated pressure is exactly the raw ceiling, so those rows can be
            checked against getCeiling(); the rest cannot be checked at all

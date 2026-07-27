@@ -41,6 +41,12 @@
   enforced: every baseline row must be consumed, and skip counts are part of
   the contract. CI additionally re-runs `gen_vectors.py` and diffs, which
   closes substituted-row edits that keep the counts intact.
+  A **fourth review** confirmed both fixed under 28 corruption cases, and found
+  two residual holes now also closed: deleting profiles *together with* their
+  baseline rows kept both counts consistent and still reported "unchanged"
+  (now anchored by an absolute `EXPECT_PROFILES` count), and a vector file
+  deleted in a commit reappeared *untracked* after regeneration, which
+  `git diff` ignores (now `git add -N` first).
   **(3) The NDL allowance blamed the wrong defect.** The 6 trimix rows deviate
   by **7–21×**, not the 1.5–1.7× stated, and the dominant cause is the ceiling
   rule propagating through `nodecotime`, not `nodecotime` itself. Split into

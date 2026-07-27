@@ -26,6 +26,13 @@
 
 #define MAXSTEPS   8192
 #define MAXPROF     128
+
+/* An absolute anchor on corpus size. The baseline-row check below catches a
+   profile going missing, but NOT a profile deleted together with its baseline
+   rows — both counts drop consistently and the suite reports "unchanged".
+   Deleting 20 profiles and their 40 rows printed "506 comparisons, unchanged"
+   until this existed. Bump it deliberately when adding a profile. */
+#define EXPECT_PROFILES  43
 #define TOL        1e-9
 
 struct sample { double t, p, o2, he; };
@@ -191,6 +198,13 @@ int main(int argc, char **argv)
     nprof = collect(names, MAXPROF);
     printf("=== profile replay (%s): %d profiles x %d tables ===\n\n",
            profile_dir, nprof, (int)(sizeof tables / sizeof tables[0]));
+
+    if (!record && nprof != EXPECT_PROFILES) {
+        fprintf(stderr, "  expected %d profiles, found %d — the corpus lost or "
+                        "gained files. If deliberate, update EXPECT_PROFILES.\n",
+                EXPECT_PROFILES, nprof);
+        failures++;
+    }
 
     if (record) {
         out = fopen(expected_path, "w");
