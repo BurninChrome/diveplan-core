@@ -1,5 +1,29 @@
 # Update Log
 
+## 2026-07-27
+
+* **Fix**: *First algorithm-level change in this project.* Corrected **11
+  nitrogen `a` values** in `zh_l16C` to the published ZH-L16C figures
+  (half-times 27.0–498.0 min), with approval under the
+  [integrity policy](/decisions/algorithm-integrity-policy.md). Ten of eleven
+  move the ceiling **deeper** — up to 0.27 m at 3 bar — i.e. toward the
+  standard and toward conservatism. Verified against the published table twice
+  and corroborated by the specification's own statement that variant C modifies
+  `a` for compartments #5–15, which predicts exactly those eleven rows.
+  No shipped output changed: the demo loads `zh_l12`, and
+  [`test_profiles`](/tooling/reference-vectors.md) confirmed every `zh_l12` row
+  byte-identical with only four `zh_l16C` rows moving. See
+  [the ADR](/decisions/2026-07-27-correct-zh-l16c-nitrogen-a.md).
+* **Update**: The safety net earned its keep on first use. The ratchet fired
+  (12 allowed deviations → 1, refusing to pass until the allowance was updated
+  in the same change), the baseline localised the movement to the right table,
+  and an unanticipated interaction surfaced: `ceiling.tsv` and
+  `gradient-tolerance.tsv` hold values computed *from* the source tables, so a
+  legitimate table change made them stale. Regenerating is correct — those
+  vectors test the ceiling rule given whatever constants exist, while the
+  constants are checked against an independent transcription.
+* **Update**: PR #3 merged to `main` as `dff9d7e` after four review rounds.
+
 ## 2026-07-26
 
 * **Creation**: [Reference vectors and the regression baseline](/tooling/reference-vectors.md)
